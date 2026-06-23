@@ -75,8 +75,9 @@ export async function buildServer() {
         pool: { enabled: !!redis, hcaptcha_size: poolSize },
       };
     }
+    const host = `${req.protocol}://${req.hostname}`;
     reply.header('Content-Type', 'text/html; charset=utf-8');
-    return buildDocsHTML(poolSize);
+    return buildDocsHTML(poolSize, host);
   });
 
   // ═══════════════════════════════════════════════════════════
@@ -217,7 +218,8 @@ svg.lucide,i[data-lucide]{display:inline-block;vertical-align:middle;margin-righ
 @media(max-width:768px){.header{padding:0 16px}.container{padding:20px 14px}.endpoint{grid-template-columns:60px 100px 1fr}.status-grid{grid-template-columns:1fr}}
 `;
 
-function buildDocsHTML(poolSize) {
+function buildDocsHTML(poolSize, host) {
+  const H = host || 'http://localhost:9000';
   return `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>API Docs — Free Captcha API</title><link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <script src="https://unpkg.com/lucide@latest"><\/script><style>${baseCSS}</style></head><body>
 <header class="header"><a href="/"><svg width="22" height="22" viewBox="0 0 64 64" fill="none"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" style="stop-color:#7c6ff7"/><stop offset="50%" style="stop-color:#a78bfa"/><stop offset="100%" style="stop-color:#10d4a0"/></linearGradient></defs><polygon points="32,3 57,16 57,48 32,61 7,48 7,16" fill="none" stroke="url(#g)" stroke-width="4.5" stroke-linejoin="round"/><rect x="16" y="18" width="9" height="28" rx="2" fill="url(#g)"/><rect x="39" y="18" width="9" height="28" rx="2" fill="url(#g)"/><rect x="16" y="29" width="32" height="6" rx="2" fill="url(#g)"/></svg> <b style="color:#7c6ff7">H</b><b style="color:#10d4a0">C</b> Panel</a><div class="header-btns"><a href="/docs" class="active"><i data-lucide="file-text" style="width:14px;height:14px"></i> Docs</a><a href="/health"><i data-lucide="activity" style="width:14px;height:14px"></i> Health</a></div></header>
@@ -232,7 +234,7 @@ function buildDocsHTML(poolSize) {
 <div class="card">${['GET|/|HC Panel Dashboard (HTML)','GET|/docs|API Documentation (HTML)','GET|/health|Service health & pool status (HTML)','POST|/solve/turnstile|Solve Cloudflare Turnstile (direct)','POST|/solve/hcaptcha|Solve hCaptcha (direct, optional proxy)','GET|/get-hcaptcha-token|Pre-solved hCaptcha token from Redis pool','GET|/get-turnstile-token|Pre-solved Turnstile token from Redis pool'].map(e => { const [m,p,d] = e.split('|'); return `<div class="endpoint"><span class="method ${m==='GET'?'method-get':'method-post'}">${m}</span><span class="path">${p}</span><span class="desc">${d}</span></div>`; }).join('')}</div>
 
 <h2><i data-lucide="shield-check"></i> POST /solve/turnstile</h2>
-<div class="card"><pre>curl -X POST <span style="color:var(--text2)">YOUR_HOST</span>/solve/turnstile \\
+<div class="card"><pre>curl -X POST <span style="color:var(--success)">${H}</span>/solve/turnstile \\
   -H "Content-Type: application/json" \\
   -d '{"sitekey":"0x4AAAAAAActoBfh_En8yr3T","siteurl":"https://example.com/","timeout":45}'
 
@@ -240,7 +242,7 @@ function buildDocsHTML(poolSize) {
 {"status":"success","token":"0.abc123...","elapsed":4.23}</pre></div>
 
 <h2><i data-lucide="lock-keyhole"></i> POST /solve/hcaptcha</h2>
-<div class="card"><pre>curl -X POST <span style="color:var(--text2)">YOUR_HOST</span>/solve/hcaptcha \\
+<div class="card"><pre>curl -X POST <span style="color:var(--success)">${H}</span>/solve/hcaptcha \\
   -H "Content-Type: application/json" \\
   -d '{"sitekey":"463b917e-e264-403f-ad34-34af0ee10294","siteurl":"https://example.com/"}'
 
@@ -252,7 +254,7 @@ function buildDocsHTML(poolSize) {
 
 <h2><i data-lucide="code"></i> Python</h2>
 <div class="card"><pre>import requests
-API = "<span style="color:var(--text2)">YOUR_HOST</span>"
+API = "<span style="color:var(--success)">${H}</span>"
 
 # Turnstile
 r = requests.post(f"{API}/solve/turnstile", json={
@@ -273,7 +275,7 @@ r = requests.get(f"{API}/get-hcaptcha-token")
 print(r.json()["token"])</pre></div>
 
 <h2><i data-lucide="braces"></i> JavaScript</h2>
-<div class="card"><pre>const API = "<span style="color:var(--text2)">YOUR_HOST</span>";
+<div class="card"><pre>const API = "<span style="color:var(--success)">${H}</span>";
 
 // Turnstile
 const ts = await fetch(API + "/solve/turnstile", {
