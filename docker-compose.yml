@@ -1,0 +1,21 @@
+version: '3.8'
+
+services:
+  free-api:
+    build: .
+    container_name: free-captcha-api
+    ports:
+      - "9000:9000"   # Node.js API + Panel
+      - "8191:8191"   # Python Turnstile solver
+    environment:
+      - PORT=9000
+      - MAX_WORKERS=4
+      - CHROME_PATH=/usr/bin/google-chrome-stable
+      - DISPLAY=:99
+      - REDIS_URL=${REDIS_URL:-}
+      - HCAPTCHA_SITEKEY=${HCAPTCHA_SITEKEY:-}
+      - HCAPTCHA_SITEURL=${HCAPTCHA_SITEURL:-}
+      - POOL_WORKERS=${POOL_WORKERS:-0}
+    volumes:
+      - ./ts_profile:/tmp/ts_profile   # Persistent browser profile
+    restart: unless-stopped
