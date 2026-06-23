@@ -129,23 +129,19 @@ async function createContext(browser, proxyConfig, siteurl) {
     timezoneId: 'America/New_York',
     deviceScaleFactor: 1,
     isMobile: false,
-    // Set referrer to target site so Turnstile sees the right origin
-    extraHTTPHeaders: {
-      'Referer': siteurl,
-    },
+    extraHTTPHeaders: { 'Referer': siteurl },
   };
 
-  if (proxyConfig) {
-    opts.proxy = proxyConfig;
-  }
+  if (proxyConfig) { opts.proxy = proxyConfig; }
 
   const context = await browser.newContext(opts);
 
-  // Block heavy resources
+  // Minimal resource blocking — only heavy media, NOT CSS/scripts
+  // Turnstile needs full page context to render properly
   await context.route('**/*', (route) => {
     const type = route.request().resourceType();
-    if (type === 'image' || type === 'font' || type === 'media' ||
-        type === 'stylesheet' || type === 'manifest') {
+    // Only block media (video/audio) — let images, CSS, fonts pass for Turnstile
+    if (type === 'media') {
       return route.abort().catch(() => {});
     }
     return route.continue();
@@ -153,6 +149,30 @@ async function createContext(browser, proxyConfig, siteurl) {
 
   await context.addInitScript(ANTI_DETECTION);
   return context;
+}
+
+// ── Inject Turnstile into real page DOM (fallback approach) ──
+async function injectTurnstile(page, sitekey) {
+  await page.evaluate((key) => {
+    if (document.getElementById('_ts_box')) return;
+    window._tsToken = null;
+    const wrap = document.createElement('div');
+    wrap.id = '_ts_box';
+    wrap.style = 'position:fixed;top:20px;left:20px;z-index:2147483647;background:white;padding:10px;border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,0.15);';
+    document.body.appendChild(wrap);
+    window._tsLoad = function () {
+      if (window.turnstile) {
+        window.turnstile.render('#_ts_box', {
+          sitekey: key,
+          callback: function(tk) { window._tsToken = tk; }
+        });
+      }
+    };
+    const s = document.createElement('script');
+    s.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?onload=_tsLoad&render=explicit';
+    s.async = true;
+    document.head.appendChild(s);
+  }, sitekey);
 }
 
 // ── Token extraction ──────────────────────────────────────────
@@ -216,61 +236,60 @@ export async function solveTurnstile(sitekey, siteurl, timeout = 45, proxy = nul
   const page = await context.newPage();
 
   try {
-    // Intercept navigation to the real URL → serve our clean fake page
-    // This way Turnstile sees the correct domain origin (not about:blank)
-    const html = buildTurnstilePage(sitekey, siteurl);
     const cleanUrl = siteurl.replace(/\/$/, '');
-    await page.route(cleanUrl, route => route.fulfill({ body: html, contentType: 'text/html' }));
-    await page.route(cleanUrl + '/**', route => route.fulfill({ body: html, contentType: 'text/html' }));
+    const HTML = buildTurnstilePage(sitekey, siteurl);
+
+    // ── Approach 1: Route interception (fast, clean) ──────────
+    await page.route(cleanUrl, route => route.fulfill({ body: HTML, contentType: 'text/html' }));
+    await page.route(cleanUrl + '/**', route => route.fulfill({ body: HTML, contentType: 'text/html' }));
 
     await page.goto(siteurl, { waitUntil: 'domcontentloaded', timeout: 15000 });
+    await new Promise(r => setTimeout(r, 3000));
 
-    // Wait for Turnstile widget to render (iframe or checkbox visible)
-    let token = null;
-    let iframeFound = false;
+    let token = await extractToken(page);
+    let iframeRect = await findTurnstileFrame(page);
 
-    for (let i = 0; i < 8; i++) {
-      await new Promise(r => setTimeout(r, 1000));
+    // ── Approach 2: Fallback — inject into real page ──────────
+    if (!token && !iframeRect) {
+      console.log('[Turnstile] Fake page failed — switching to real page injection...');
+      // Un-route and reload the real page
+      await page.unroute(cleanUrl);
+      await page.unroute(cleanUrl + '/**');
+      await page.goto(siteurl, { waitUntil: 'domcontentloaded', timeout: 20000 });
+      await new Promise(r => setTimeout(r, 2000));
+
+      // Inject Turnstile widget into real page DOM
+      await injectTurnstile(page, sitekey);
+      await new Promise(r => setTimeout(r, 3000));
       token = await extractToken(page);
-      if (token) break;
-      const rect = await findTurnstileFrame(page);
-      if (rect) { iframeFound = true; break; }
+      iframeRect = await findTurnstileFrame(page);
     }
 
-    // Auto-solved (invisible widget)
+    // Auto-solved?
     if (token) {
-      console.log('[Turnstile] Auto-solved (invisible widget)');
+      console.log('[Turnstile] Auto-solved');
       await context.close();
       return token;
     }
 
-    if (!iframeFound) {
-      console.log('[Turnstile] No Turnstile iframe found — widget may not have loaded. Trying longer wait...');
-      // Longer wait — some sites are slow
-      for (let i = 0; i < 10; i++) {
+    if (!iframeRect) {
+      // Wait more for iframe on real page
+      for (let i = 0; i < 12; i++) {
         await new Promise(r => setTimeout(r, 1000));
         token = await extractToken(page);
         if (token) break;
-        const rect = await findTurnstileFrame(page);
-        if (rect) { iframeFound = true; break; }
+        iframeRect = await findTurnstileFrame(page);
+        if (iframeRect) break;
       }
     }
 
-    if (token) {
-      console.log('[Turnstile] Solved after extended wait');
-      await context.close();
-      return token;
-    }
+    if (token) { await context.close(); return token; }
+    if (!iframeRect) throw new Error('Turnstile widget did not load — sitekey may be invalid or site is blocking');
 
-    if (!iframeFound) {
-      throw new Error('Turnstile widget did not load — site may be blocking or sitekey is invalid');
-    }
-
-    // Click loop — managed/challenge mode
+    // ── Click loop for managed/challenge ──────────────────────
     const deadline = Date.now() + timeout * 1000;
     let clickCount = 0;
     let lastClick = 0;
-    let rect = await findTurnstileFrame(page);
 
     while (Date.now() < deadline) {
       token = await extractToken(page);
@@ -278,27 +297,19 @@ export async function solveTurnstile(sitekey, siteurl, timeout = 45, proxy = nul
 
       const now = Date.now();
       if (clickCount === 0 || (now - lastClick > 5000)) {
-        if (clickCount >= 4) {
-          await new Promise(r => setTimeout(r, 1500));
-          continue;
-        }
-        await humanClick(page, rect);
+        if (clickCount >= 4) { await new Promise(r => setTimeout(r, 1500)); continue; }
+        await humanClick(page, iframeRect);
         lastClick = Date.now();
         clickCount++;
         console.log('[Turnstile] Click', clickCount);
         await new Promise(r => setTimeout(r, 1500));
-        rect = (await findTurnstileFrame(page)) || rect;
+        iframeRect = (await findTurnstileFrame(page)) || iframeRect;
         continue;
       }
       await new Promise(r => setTimeout(r, 800));
     }
 
-    if (token) {
-      console.log('[Turnstile] Solved after', clickCount, 'clicks');
-      await context.close();
-      return token;
-    }
-
+    if (token) { console.log('[Turnstile] Solved after', clickCount, 'clicks'); await context.close(); return token; }
     throw new Error(`Turnstile token not obtained within ${timeout}s`);
 
   } catch (e) {
