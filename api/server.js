@@ -15,6 +15,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 // Read static files at startup
 const PANEL_HTML = readFileSync(join(__dirname, '..', 'public', 'index.html'), 'utf-8');
 const FAVICON_SVG = readFileSync(join(__dirname, '..', 'public', 'favicon.svg'), 'utf-8');
+const LOGO_SVG = readFileSync(join(__dirname, '..', 'public', 'logo.svg'), 'utf-8');
 
 // Redis — optional. If REDIS_URL not set, pool features are disabled.
 const REDIS_URL = process.env.REDIS_URL || '';
@@ -39,12 +40,17 @@ export async function buildServer() {
   });
 
   // ═══════════════════════════════════════════════════════════
-  //  FAVICON
+  //  STATIC FILES — favicon & logo
   // ═══════════════════════════════════════════════════════════
   app.get('/favicon.svg', async (_req, reply) => {
     reply.header('Content-Type', 'image/svg+xml');
     reply.header('Cache-Control', 'public, max-age=86400');
     return FAVICON_SVG;
+  });
+  app.get('/logo.svg', async (_req, reply) => {
+    reply.header('Content-Type', 'image/svg+xml');
+    reply.header('Cache-Control', 'public, max-age=86400');
+    return LOGO_SVG;
   });
 
   // ═══════════════════════════════════════════════════════════
@@ -178,7 +184,7 @@ const baseCSS = `
 *{margin:0;padding:0;box-sizing:border-box}
 body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:100vh;background-image:radial-gradient(ellipse at 20% 0%,rgba(108,92,231,0.08) 0%,transparent 50%),radial-gradient(ellipse at 80% 100%,rgba(0,210,160,0.05) 0%,transparent 50%)}
 .header{background:var(--surface);border-bottom:1px solid var(--border);padding:0 32px;height:60px;display:flex;align-items:center;justify-content:space-between}
-.header a{font-size:1.3rem;font-weight:800;background:linear-gradient(135deg,var(--primary),#a78bfa);-webkit-background-clip:text;-webkit-text-fill-color:transparent;text-decoration:none}
+.header a{font-size:1.15rem;font-weight:700;color:var(--text);text-decoration:none;display:flex;align-items:center;gap:8px}.header a:hover{opacity:0.85}.header a b{font-size:1.2rem}
 .header-btns{display:flex;gap:8px}
 .header-btns a{padding:7px 18px;border-radius:6px;font-size:.78rem;font-weight:600;border:1px solid var(--border);background:var(--surface2);color:var(--text2);text-decoration:none;transition:.2s}
 .header-btns a:hover,.header-btns a.active{color:var(--text);border-color:var(--primary)}
@@ -214,7 +220,7 @@ svg.lucide,i[data-lucide]{display:inline-block;vertical-align:middle;margin-righ
 function buildDocsHTML(poolSize) {
   return `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>API Docs — Free Captcha API</title><link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <script src="https://unpkg.com/lucide@latest"><\/script><style>${baseCSS}</style></head><body>
-<header class="header"><a href="/"><svg width="22" height="22" viewBox="0 0 24 24" fill="none"><defs><linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style="stop-color:#7c6ff7"/><stop offset="100%" style="stop-color:#10d4a0"/></linearGradient></defs><polygon points="12,0.5 21.5,6 21.5,18 12,23.5 2.5,18 2.5,6" fill="none" stroke="url(#g)" stroke-width="1.8" stroke-linejoin="round"/><path d="M12 7.5v5.5l3.5 2" fill="none" stroke="url(#g)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M9 7.5h6" fill="none" stroke="url(#g)" stroke-width="1.5" stroke-linecap="round"/></svg> HC Panel</a><div class="header-btns"><a href="/docs" class="active"><i data-lucide="file-text" style="width:14px;height:14px"></i> Docs</a><a href="/health"><i data-lucide="activity" style="width:14px;height:14px"></i> Health</a></div></header>
+<header class="header"><a href="/"><svg width="22" height="22" viewBox="0 0 64 64" fill="none"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" style="stop-color:#7c6ff7"/><stop offset="50%" style="stop-color:#a78bfa"/><stop offset="100%" style="stop-color:#10d4a0"/></linearGradient></defs><polygon points="32,3 57,16 57,48 32,61 7,48 7,16" fill="none" stroke="url(#g)" stroke-width="4.5" stroke-linejoin="round"/><rect x="16" y="18" width="9" height="28" rx="2" fill="url(#g)"/><rect x="39" y="18" width="9" height="28" rx="2" fill="url(#g)"/><rect x="16" y="29" width="32" height="6" rx="2" fill="url(#g)"/></svg> <b style="color:#7c6ff7">H</b><b style="color:#10d4a0">C</b> Panel</a><div class="header-btns"><a href="/docs" class="active"><i data-lucide="file-text" style="width:14px;height:14px"></i> Docs</a><a href="/health"><i data-lucide="activity" style="width:14px;height:14px"></i> Health</a></div></header>
 <div class="container">
 <h1><i data-lucide="book-open-text"></i> API Documentation</h1>
 <p class="sub">Unified solver for Cloudflare Turnstile &amp; hCaptcha — any site, any key</p>
@@ -294,7 +300,7 @@ function buildHealthHTML(poolSize) {
   const overallStatus = redisStatus ? 'ok' : 'degraded';
   return `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>Health — Free Captcha API</title><link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <script src="https://unpkg.com/lucide@latest"><\/script><style>${baseCSS}</style></head><body>
-<header class="header"><a href="/"><svg width="22" height="22" viewBox="0 0 24 24" fill="none"><defs><linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style="stop-color:#7c6ff7"/><stop offset="100%" style="stop-color:#10d4a0"/></linearGradient></defs><polygon points="12,0.5 21.5,6 21.5,18 12,23.5 2.5,18 2.5,6" fill="none" stroke="url(#g)" stroke-width="1.8" stroke-linejoin="round"/><path d="M12 7.5v5.5l3.5 2" fill="none" stroke="url(#g)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M9 7.5h6" fill="none" stroke="url(#g)" stroke-width="1.5" stroke-linecap="round"/></svg> HC Panel</a><div class="header-btns"><a href="/docs"><i data-lucide="file-text" style="width:14px;height:14px"></i> Docs</a><a href="/health" class="active"><i data-lucide="activity" style="width:14px;height:14px"></i> Health</a></div></header>
+<header class="header"><a href="/"><svg width="22" height="22" viewBox="0 0 64 64" fill="none"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" style="stop-color:#7c6ff7"/><stop offset="50%" style="stop-color:#a78bfa"/><stop offset="100%" style="stop-color:#10d4a0"/></linearGradient></defs><polygon points="32,3 57,16 57,48 32,61 7,48 7,16" fill="none" stroke="url(#g)" stroke-width="4.5" stroke-linejoin="round"/><rect x="16" y="18" width="9" height="28" rx="2" fill="url(#g)"/><rect x="39" y="18" width="9" height="28" rx="2" fill="url(#g)"/><rect x="16" y="29" width="32" height="6" rx="2" fill="url(#g)"/></svg> <b style="color:#7c6ff7">H</b><b style="color:#10d4a0">C</b> Panel</a><div class="header-btns"><a href="/docs"><i data-lucide="file-text" style="width:14px;height:14px"></i> Docs</a><a href="/health" class="active"><i data-lucide="activity" style="width:14px;height:14px"></i> Health</a></div></header>
 <div class="container">
 <h1><i data-lucide="activity"></i> Service Health</h1>
 <p class="sub">Real-time status of the Free Captcha API</p>

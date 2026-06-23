@@ -59,12 +59,12 @@ body {
 .header-left { display: flex; align-items: center; gap: 24px; }
 .header-logo {
   display: flex; align-items: center; gap: 9px;
-  font-size: 1.15rem; font-weight: 800; letter-spacing: -0.3px;
-  background: linear-gradient(135deg, var(--primary), #b4a6ff);
-  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  font-size: 1.15rem; font-weight: 700; letter-spacing: -0.3px;
+  color: var(--text);
   cursor: pointer; text-decoration: none; user-select: none;
 }
-.header-logo svg { color: var(--primary); }
+.header-logo:hover { opacity: 0.85; }
+.header-logo .brand-text b { font-size: 1.2rem; }
 .header-links { display: flex; gap: 5px; }
 .header-btn {
   padding: 6px 14px; border-radius: 6px; font-size: 0.76rem; font-weight: 600;
@@ -277,18 +277,20 @@ tr:hover td { background: rgba(255,255,255,0.015); }
 <header class="header">
   <div class="header-left">
     <a class="header-logo" onclick="goHome()" title="HC Panel — Home">
-      <svg width="24" height="24" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <svg width="26" height="26" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
         <defs>
-          <linearGradient id="logoGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" style="stop-color:#7c6ff7"/>
-            <stop offset="100%" style="stop-color:#10d4a0"/>
+          <linearGradient id="logoGrad" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stop-color="#7c6ff7"/>
+            <stop offset="50%" stop-color="#a78bfa"/>
+            <stop offset="100%" stop-color="#10d4a0"/>
           </linearGradient>
         </defs>
-        <polygon points="16,1 29,8 29,24 16,31 3,24 3,8" fill="none" stroke="url(#logoGrad)" stroke-width="2.2" stroke-linejoin="round"/>
-        <path d="M16 10v7l4.5 2.5" fill="none" stroke="url(#logoGrad)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
-        <path d="M12 10h8" fill="none" stroke="url(#logoGrad)" stroke-width="1.8" stroke-linecap="round"/>
+        <polygon points="32,3 57,16 57,48 32,61 7,48 7,16" fill="none" stroke="url(#logoGrad)" stroke-width="4.5" stroke-linejoin="round"/>
+        <rect x="16" y="18" width="9" height="28" rx="2" fill="url(#logoGrad)"/>
+        <rect x="39" y="18" width="9" height="28" rx="2" fill="url(#logoGrad)"/>
+        <rect x="16" y="29" width="32" height="6" rx="2" fill="url(#logoGrad)"/>
       </svg>
-      <span>HC Panel</span>
+      <span class="brand-text"><b style="color:#7c6ff7;font-weight:800">H</b><b style="color:#10d4a0;font-weight:800">C</b> Panel</span>
     </a>
     <div class="header-links">
       <button class="header-btn docs-btn" onclick="window.open(apiUrl() + '/docs', '_blank')">
@@ -787,7 +789,7 @@ async function doSolveTurnstile(key, url, timeout = 45) {
     if (ps) {
       const [auth, hp] = ps.split('@');
       if (auth && hp) {
-        const [u, p] = auth.replace('http://', '').split(':');
+        const [u, p] = auth.replace(/^https?:\/\//, '').split(':');
         const [h, port] = hp.split(':');
         body.proxy = { server: `http://${h}:${port}`, username: u, password: p };
       }
