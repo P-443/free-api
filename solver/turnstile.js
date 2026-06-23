@@ -32,7 +32,7 @@ function getProfileDir() {
   return dir;
 }
 
-// ── Shared persistent browser (like Python) ──────────────────
+// ── Shared persistent browser ────────────────────────────────
 let sharedBrowser = null;
 let solveCount = 0;
 const MAX_SOLVES = 150;
@@ -51,23 +51,20 @@ async function getBrowser() {
   }
 
   if (!sharedBrowser) {
-    const profileDir = getProfileDir();
-    console.log('[Turnstile] Browser with profile:', profileDir);
-
-    // Use persistent context — like Python's user_data_dir
-    sharedBrowser = await chromium.launchPersistentContext(profileDir, {
-      headless: false,  // Like Python nodriver — headed mode with Xvfb
-      executablePath: findChrome(),
+    const exePath = findChrome();
+    console.log('[Turnstile] Launching browser:', exePath);
+    sharedBrowser = await chromium.launch({
+      headless: true,
+      executablePath: exePath,
       args: [
         '--no-sandbox',
         '--disable-dev-shm-usage',
         '--disable-gpu',
         '--disable-blink-features=AutomationControlled',
-        '--disable-features=Translate,OptimizationHints',
+        '--disable-features=Translate,OptimizationHints,IsolateOrigins',
+        '--no-first-run',
+        '--no-default-browser-check',
       ],
-      viewport: { width: 1280, height: 800 },
-      userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/148.0.0.0 Safari/537.36',
-      locale: 'en-US',
     });
     solveCount = 0;
   }
@@ -76,12 +73,35 @@ async function getBrowser() {
   return sharedBrowser;
 }
 
+async function createContext(browser, proxy) {
+  const opts = {
+    viewport: { width: 1280, height: 800 },
+    userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/148.0.0.0 Safari/537.36',
+    locale: 'en-US',
+    timezoneId: 'America/New_York',
+    deviceScaleFactor: 1,
+    isMobile: false,
+  };
+  if (proxy) opts.proxy = proxy;
+  const ctx = await browser.newContext(opts);
+
+  // Anti-detection
+  await ctx.addInitScript(`
+    Object.defineProperty(navigator, 'webdriver', {get: () => undefined});
+    Object.defineProperty(navigator, 'plugins', {get: () => [1, 2, 3, 4, 5]});
+    Object.defineProperty(navigator, 'languages', {get: () => ['en-US', 'en']});
+    window.chrome = { runtime: {}, loadTimes: function() {}, csi: function() {}, app: {} };
+  `);
+  return ctx;
+}
+
 // ═══════════════════════════════════════════════════════════════
 //  SOLVE — exactly like Python _solve_page()
 // ═══════════════════════════════════════════════════════════════
 
 export async function solveTurnstile(sitekey, siteurl, timeout = 45, proxy = null) {
-  const context = await getBrowser();
+  const browser = await getBrowser();
+  const context = await createContext(browser, proxy);
   const page = await context.newPage();
 
   try {
@@ -119,7 +139,7 @@ export async function solveTurnstile(sitekey, siteurl, timeout = 45, proxy = nul
       const inp = document.querySelector('#_ts_box [name="cf-turnstile-response"]');
       return (inp && inp.value) ? inp.value : null;
     });
-    if (token) { await page.close(); return token; }
+    if (token) { await context.close(); return token; }
 
     // Step 4: Wait for Cloudflare iframe (checkbox)
     let rect = null;
@@ -143,7 +163,7 @@ export async function solveTurnstile(sitekey, siteurl, timeout = 45, proxy = nul
       await new Promise(r => setTimeout(r, 500));
     }
 
-    if (token) { await page.close(); return token; }
+    if (token) { await context.close(); return token; }
 
     // Step 5: Click loop (exact same logic as Python)
     const deadline = Date.now() + timeout * 1000;
@@ -199,7 +219,7 @@ export async function solveTurnstile(sitekey, siteurl, timeout = 45, proxy = nul
 
     if (token) {
       console.log('[Turnstile] Solved!');
-      await page.close();
+      await context.close();
       return token;
     }
 
