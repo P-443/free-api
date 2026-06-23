@@ -293,10 +293,10 @@ tr:hover td { background: rgba(255,255,255,0.015); }
       <span class="brand-text"><b style="color:#7c6ff7;font-weight:800">H</b><b style="color:#10d4a0;font-weight:800">C</b> Panel</span>
     </a>
     <div class="header-links">
-      <button class="header-btn docs-btn" onclick="window.open(apiUrl() + '/docs', '_blank')">
+      <button class="header-btn docs-btn" onclick="window.location.href=apiUrl() + '/docs'">
         <i data-lucide="file-text" style="width:14px;height:14px"></i> Docs
       </button>
-      <button class="header-btn health-btn" onclick="window.open(apiUrl() + '/health', '_blank')">
+      <button class="header-btn health-btn" onclick="window.location.href=apiUrl() + '/health'">
         <i data-lucide="activity" style="width:14px;height:14px"></i> Health
       </button>
     </div>
@@ -461,7 +461,7 @@ tr:hover td { background: rgba(255,255,255,0.015); }
           </div>
           <div class="form-group">
             <label>Proxy <span style="color:var(--text2);font-weight:400;font-size:0.68rem">— optional</span></label>
-            <input type="text" id="tsProxy" placeholder="Leave empty for direct connection">
+            <input type="text" id="tsProxy" placeholder="http://user:pass@host:port (leave empty if none)">
           </div>
           <div class="form-full">
             <button class="btn btn-primary" onclick="solveTurnstile()" id="tsSolveBtn">
@@ -500,11 +500,11 @@ tr:hover td { background: rgba(255,255,255,0.015); }
           </div>
           <div class="form-group">
             <label>Proxy Server <span style="color:var(--text2);font-weight:400;font-size:0.68rem">— optional</span></label>
-            <input type="text" id="hcProxyServer" placeholder="Leave empty for direct connection">
+            <input type="text" id="hcProxyServer" placeholder="http://66.33.22.238:29967 (leave empty if none)">
           </div>
           <div class="form-group">
             <label>Proxy Auth <span style="color:var(--text2);font-weight:400;font-size:0.68rem">— optional</span></label>
-            <input type="text" id="hcProxyAuth" placeholder="Leave empty for direct connection">
+            <input type="text" id="hcProxyAuth" placeholder="username:password (leave empty if none)">
           </div>
           <div class="form-full">
             <button class="btn btn-primary" onclick="solveHCaptcha()" id="hcSolveBtn">
