@@ -835,7 +835,7 @@ async function checkHealth() {
   const dot = document.getElementById('statusDot');
   const base = apiUrl();
   try {
-    const r = await fetch(base + '/health', { signal: AbortSignal.timeout(5000) });
+    const r = await fetch(base + '/health?json=1', { signal: AbortSignal.timeout(5000) });
     const d = await r.json();
     dot.textContent = d.status === 'ok' ? 'Connected' : 'Error';
     dot.className = d.status === 'ok' ? 'status-dot' : 'status-dot offline';
@@ -864,7 +864,7 @@ async function refreshDashboard() {
     return;
   }
   try {
-    const r = await fetch(apiUrl() + '/docs');
+    const r = await fetch(apiUrl() + '/docs?json=1');
     const data = await r.json();
     const hcSize = data.pool?.hcaptcha_size || 0;
     document.getElementById('statHC').textContent = hcSize;

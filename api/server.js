@@ -38,56 +38,41 @@ export async function buildServer() {
   });
 
   // ═══════════════════════════════════════════════════════════
-  //  API DOCS — JSON endpoint list
+  //  API DOCS — Beautiful HTML page
   // ═══════════════════════════════════════════════════════════
-  app.get('/docs', async (_req, reply) => {
+  app.get('/docs', async (req, reply) => {
     const poolSize = redis ? await redis.llen('hcaptcha_tokens').catch(() => 0) : 0;
-    return {
-      name: 'Free Captcha API v3',
-      description: 'Unified solver for Cloudflare Turnstile & hCaptcha — any site, any key',
-      endpoints: {
-        '/': 'GET — This documentation',
-        '/health': 'GET — Service health & pool status',
-        '/solve/turnstile': 'POST — Solve Cloudflare Turnstile (direct)',
-        '/solve/hcaptcha': 'POST — Solve hCaptcha (direct, with optional proxy)',
-        '/get-hcaptcha-token': 'GET — Get pre-solved hCaptcha token from pool (Redis required)',
-        '/get-turnstile-token': 'GET — Get pre-solved Turnstile token from pool (Redis required)',
-      },
-      pool: {
-        enabled: !!redis,
-        hcaptcha_size: poolSize,
-      },
-      usage_examples: {
-        turnstile: {
-          method: 'POST',
-          url: '/solve/turnstile',
-          body: {
-            sitekey: '0x4AAAAAAActoBfh_En8yr3T',
-            siteurl: 'https://example.com/',
-            timeout: 45,
-          },
-          response: { status: 'success', token: '0.abc123...', elapsed: 4.23 },
+    // JSON for machines (?json=1) — HTML for humans
+    if (req.query.json !== undefined) {
+      return {
+        name: 'Free Captcha API v3',
+        description: 'Unified solver for Cloudflare Turnstile & hCaptcha — any site, any key',
+        endpoints: {
+          '/': 'GET — HC Panel Dashboard',
+          '/docs': 'GET — API Documentation',
+          '/health': 'GET — Service health & pool status',
+          '/solve/turnstile': 'POST — Solve Cloudflare Turnstile (direct)',
+          '/solve/hcaptcha': 'POST — Solve hCaptcha (direct, with optional proxy)',
+          '/get-hcaptcha-token': 'GET — Get pre-solved hCaptcha token from Redis pool',
+          '/get-turnstile-token': 'GET — Get pre-solved Turnstile token from Redis pool',
         },
-        hcaptcha: {
-          method: 'POST',
-          url: '/solve/hcaptcha',
-          body: {
-            sitekey: '463b917e-e264-403f-ad34-34af0ee10294',
-            siteurl: 'https://example.com/',
-            proxy: { server: 'http://ip:port', username: 'user', password: 'pass' },
-          },
-          response: { status: 'success', token: 'P0_abc123...', elapsed: 5.67 },
-        },
-      },
-    };
+        pool: { enabled: !!redis, hcaptcha_size: poolSize },
+      };
+    }
+    reply.header('Content-Type', 'text/html; charset=utf-8');
+    return buildDocsHTML(poolSize);
   });
 
   // ═══════════════════════════════════════════════════════════
-  //  HEALTH
+  //  HEALTH — Beautiful HTML page (or JSON with ?json=1)
   // ═══════════════════════════════════════════════════════════
-  app.get('/health', async (_req, reply) => {
+  app.get('/health', async (req, reply) => {
     const poolSize = redis ? await redis.llen('hcaptcha_tokens').catch(() => 0) : 0;
-    return { status: 'ok', redis: !!redis, hcaptcha_pool_size: poolSize };
+    if (req.query.json !== undefined) {
+      return { status: 'ok', redis: !!redis, hcaptcha_pool_size: poolSize };
+    }
+    reply.header('Content-Type', 'text/html; charset=utf-8');
+    return buildHealthHTML(poolSize);
   });
 
   // ═══════════════════════════════════════════════════════════
@@ -172,4 +157,159 @@ export async function buildServer() {
   });
 
   return app;
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  HTML TEMPLATES — Styled pages for /docs and /health
+// ═══════════════════════════════════════════════════════════════
+
+const baseCSS = `
+:root{--bg:#0a0a0f;--surface:#13131a;--surface2:#1a1a25;--border:#252535;--primary:#6c5ce7;--primary-glow:rgba(108,92,231,0.3);--success:#00d2a0;--success-glow:rgba(0,210,160,0.3);--warning:#f9a825;--danger:#ff4757;--text:#e8e8f0;--text2:#9090a0;--radius:14px;--radius-sm:8px;--font:'Segoe UI',system-ui,sans-serif;--mono:'Cascadia Code','Fira Code',monospace}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:100vh;background-image:radial-gradient(ellipse at 20% 0%,rgba(108,92,231,0.08) 0%,transparent 50%),radial-gradient(ellipse at 80% 100%,rgba(0,210,160,0.05) 0%,transparent 50%)}
+.header{background:var(--surface);border-bottom:1px solid var(--border);padding:0 32px;height:60px;display:flex;align-items:center;justify-content:space-between}
+.header a{font-size:1.3rem;font-weight:800;background:linear-gradient(135deg,var(--primary),#a78bfa);-webkit-background-clip:text;-webkit-text-fill-color:transparent;text-decoration:none}
+.header-btns{display:flex;gap:8px}
+.header-btns a{padding:7px 18px;border-radius:6px;font-size:.78rem;font-weight:600;border:1px solid var(--border);background:var(--surface2);color:var(--text2);text-decoration:none;transition:.2s}
+.header-btns a:hover,.header-btns a.active{color:var(--text);border-color:var(--primary)}
+.container{max-width:1000px;margin:0 auto;padding:32px 24px}
+h1{font-size:1.8rem;margin-bottom:6px}
+h2{font-size:1.15rem;font-weight:700;margin:24px 0 12px;color:var(--primary)}
+p.sub{color:var(--text2);font-size:.85rem;margin-bottom:24px}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:22px;margin-bottom:16px}
+.card-row{display:flex;justify-content:space-between;align-items:center}
+.badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:.7rem;font-weight:700}
+.badge-ok{background:rgba(0,210,160,0.15);color:var(--success)}
+.badge-warn{background:rgba(249,168,37,0.15);color:var(--warning)}
+.endpoint{display:grid;grid-template-columns:70px 120px 1fr;gap:12px;align-items:center;padding:10px 0;border-bottom:1px solid var(--border);font-size:.82rem}
+.endpoint .method{font-weight:700;font-size:.7rem;padding:3px 8px;border-radius:4px;text-align:center}
+.method-get{background:rgba(0,210,160,0.15);color:var(--success)}
+.method-post{background:rgba(108,92,231,0.15);color:var(--primary)}
+.endpoint .path{font-family:var(--mono);font-size:.75rem}
+.endpoint .desc{color:var(--text2);font-size:.78rem}
+pre{background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);padding:16px;font-family:var(--mono);font-size:.72rem;overflow-x:auto;color:var(--text);line-height:1.6}
+.status-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:16px 0}
+.stat-card{background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:18px;text-align:center}
+.stat-card .label{font-size:.7rem;color:var(--text2);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px}
+.stat-card .value{font-size:1.8rem;font-weight:800;font-family:var(--mono)}
+.stat-card.ok .value{color:var(--success)}
+.stat-card.warn .value{color:var(--warning)}
+.pool-bar{width:100%;height:8px;background:var(--bg);border-radius:10px;margin-top:14px;overflow:hidden}
+.pool-fill{height:100%;border-radius:10px;transition:width .6s}
+@media(max-width:768px){.header{padding:0 16px}.container{padding:20px 14px}.endpoint{grid-template-columns:60px 100px 1fr}.status-grid{grid-template-columns:1fr}}
+`;
+
+function buildDocsHTML(poolSize) {
+  return `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>API Docs — Free Captcha API</title><style>${baseCSS}</style></head><body>
+<header class="header"><a href="/">HC Panel</a><div class="header-btns"><a href="/docs" class="active">📄 Docs</a><a href="/health">💚 Health</a></div></header>
+<div class="container">
+<h1>📚 API Documentation</h1>
+<p class="sub">Unified solver for Cloudflare Turnstile &amp; hCaptcha — any site, any key</p>
+
+<div class="card"><div class="card-row"><span><strong>🔐 hCaptcha Pool</strong></span><span><span class="badge badge-ok">${poolSize} tokens ready</span></span></div>
+<div class="pool-bar"><div class="pool-fill" style="width:${Math.min(100,(poolSize/50)*100)}%;background:var(--success)"></div></div></div>
+
+<h2>Endpoints</h2>
+<div class="card">
+<div class="endpoint"><span class="method method-get">GET</span><span class="path">/</span><span class="desc">HC Panel Dashboard (HTML)</span></div>
+<div class="endpoint"><span class="method method-get">GET</span><span class="path">/docs</span><span class="desc">API Documentation (HTML)</span></div>
+<div class="endpoint"><span class="method method-get">GET</span><span class="path">/health</span><span class="desc">Service health &amp; pool status (HTML)</span></div>
+<div class="endpoint"><span class="method method-post">POST</span><span class="path">/solve/turnstile</span><span class="desc">Solve Cloudflare Turnstile (direct)</span></div>
+<div class="endpoint"><span class="method method-post">POST</span><span class="path">/solve/hcaptcha</span><span class="desc">Solve hCaptcha (direct, optional proxy)</span></div>
+<div class="endpoint"><span class="method method-get">GET</span><span class="path">/get-hcaptcha-token</span><span class="desc">Pre-solved hCaptcha token from Redis pool</span></div>
+<div class="endpoint"><span class="method method-get">GET</span><span class="path">/get-turnstile-token</span><span class="desc">Pre-solved Turnstile token from Redis pool</span></div>
+</div>
+
+<h2>POST /solve/turnstile</h2>
+<div class="card"><pre>curl -X POST <span style="color:var(--text2)">YOUR_HOST</span>/solve/turnstile \\
+  -H "Content-Type: application/json" \\
+  -d '{"sitekey":"0x4AAAAAAActoBfh_En8yr3T","siteurl":"https://example.com/","timeout":45}'
+
+<span style="color:var(--success)"># 200 OK</span>
+{"status":"success","token":"0.abc123...","elapsed":4.23}</pre></div>
+
+<h2>POST /solve/hcaptcha</h2>
+<div class="card"><pre>curl -X POST <span style="color:var(--text2)">YOUR_HOST</span>/solve/hcaptcha \\
+  -H "Content-Type: application/json" \\
+  -d '{"sitekey":"463b917e-e264-403f-ad34-34af0ee10294","siteurl":"https://example.com/"}'
+
+<span style="color:var(--success)"># 200 OK</span>
+{"status":"success","token":"P0_abc123...","elapsed":5.67}
+
+<span style="color:var(--text2)"># With proxy:</span>
+{"sitekey":"...","siteurl":"...","proxy":{"server":"http://host:port","username":"u","password":"p"}}</pre></div>
+
+<h2>Python</h2>
+<div class="card"><pre>import requests
+API = "<span style="color:var(--text2)">YOUR_HOST</span>"
+
+# Turnstile
+r = requests.post(f"{API}/solve/turnstile", json={
+    "sitekey": "0x4AAAAAAActoBfh_En8yr3T",
+    "siteurl": "https://example.com/"
+})
+print(r.json()["token"])
+
+# hCaptcha
+r = requests.post(f"{API}/solve/hcaptcha", json={
+    "sitekey": "463b917e-e264-403f-ad34-34af0ee10294",
+    "siteurl": "https://example.com/"
+})
+print(r.json()["token"])
+
+# From pool (instant)
+r = requests.get(f"{API}/get-hcaptcha-token")
+print(r.json()["token"])</pre></div>
+
+<h2>JavaScript</h2>
+<div class="card"><pre>const API = "<span style="color:var(--text2)">YOUR_HOST</span>";
+
+// Turnstile
+const ts = await fetch(API + "/solve/turnstile", {
+  method: "POST",
+  headers: {"Content-Type": "application/json"},
+  body: JSON.stringify({sitekey: "0x4...", siteurl: "https://..."})
+}).then(r => r.json());
+
+// hCaptcha
+const hc = await fetch(API + "/solve/hcaptcha", {
+  method: "POST",
+  headers: {"Content-Type": "application/json"},
+  body: JSON.stringify({sitekey: "463...", siteurl: "https://..."})
+}).then(r => r.json());
+
+// From pool (instant, no waiting)
+const pool = await fetch(API + "/get-hcaptcha-token").then(r => r.json());</pre></div>
+</div></body></html>`;
+}
+
+function buildHealthHTML(poolSize) {
+  const redisStatus = poolSize >= 0;
+  const overallStatus = redisStatus ? 'ok' : 'degraded';
+  return `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>Health — Free Captcha API</title><style>${baseCSS}</style></head><body>
+<header class="header"><a href="/">HC Panel</a><div class="header-btns"><a href="/docs">📄 Docs</a><a href="/health" class="active">💚 Health</a></div></header>
+<div class="container">
+<h1>💚 Service Health</h1>
+<p class="sub">Real-time status of the Free Captcha API</p>
+
+<div class="status-grid">
+<div class="stat-card ok"><div class="label">Overall Status</div><div class="value">${overallStatus === 'ok' ? '✅ OK' : '⚠️ Degraded'}</div></div>
+<div class="stat-card ok"><div class="label">Uptime</div><div class="value">${process.uptime().toFixed(0)}s</div></div>
+<div class="stat-card ${redisStatus ? 'ok' : 'warn'}"><div class="label">Redis</div><div class="value">${redisStatus ? '✅ Connected' : '⚠️ Disabled'}</div></div>
+</div>
+
+<div class="card"><div class="card-row"><span><strong>🔐 hCaptcha Pool Size</strong></span><span><span class="badge ${poolSize >= 20 ? 'badge-ok' : 'badge-warn'}">${poolSize} / 50</span></span></div>
+<div class="pool-bar"><div class="pool-fill" style="width:${Math.min(100,(poolSize/50)*100)}%;background:${poolSize >= 20 ? 'var(--success)' : 'var(--warning)'}"></div></div></div>
+
+<div class="card"><div class="card-row"><span><strong>Endpoints</strong></span></div>
+<div style="margin-top:12px;display:grid;gap:8px;">
+<div class="endpoint"><span class="method method-get">GET</span><span class="path">/</span><span class="desc">Dashboard</span></div>
+<div class="endpoint"><span class="method method-get">GET</span><span class="path">/docs</span><span class="desc">API Docs</span></div>
+<div class="endpoint"><span class="method method-get">GET</span><span class="path">/health</span><span class="desc">This page</span></div>
+<div class="endpoint"><span class="method method-post">POST</span><span class="path">/solve/turnstile</span><span class="desc">Solve Turnstile</span></div>
+<div class="endpoint"><span class="method method-post">POST</span><span class="path">/solve/hcaptcha</span><span class="desc">Solve hCaptcha</span></div>
+<div class="endpoint"><span class="method method-get">GET</span><span class="path">/get-hcaptcha-token</span><span class="desc">hCaptcha pool token</span></div>
+<div class="endpoint"><span class="method method-get">GET</span><span class="path">/get-turnstile-token</span><span class="desc">Turnstile pool token</span></div>
+</div></div>
+</div></body></html>`;
 }
