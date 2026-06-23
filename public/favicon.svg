@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#7c6ff7"/>
+      <stop offset="50%" stop-color="#a78bfa"/>
+      <stop offset="100%" stop-color="#10d4a0"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Dark background -->
+  <rect width="64" height="64" rx="15" fill="#0d0d14"/>
+
+  <!-- Bold hexagon -->
+  <polygon points="32,4 56,16 56,48 32,60 8,48 8,16"
+           fill="none" stroke="url(#g)" stroke-width="4.5"
+           stroke-linejoin="round"/>
+
+  <!-- H letters inside hexagon -->
+  <!-- H left pillar -->
+  <rect x="16" y="18" width="9" height="28" rx="2" fill="url(#g)"/>
+  <!-- H right pillar -->
+  <rect x="39" y="18" width="9" height="28" rx="2" fill="url(#g)"/>
+  <!-- H bridge -->
+  <rect x="16" y="29" width="32" height="6" rx="2" fill="url(#g)"/>
+</svg>
