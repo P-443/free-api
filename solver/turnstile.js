@@ -27,9 +27,11 @@ async function getBrowser() {
   }
 
   if (!sharedBrowser) {
-    console.log('[Turnstile] Launching Chromium...');
+    const exePath = process.env.CHROME_PATH || '/usr/bin/google-chrome-stable';
+    console.log('[Turnstile] Launching browser:', exePath);
     sharedBrowser = await chromium.launch({
       headless: true,
+      executablePath: exePath,
       args: [
         '--no-sandbox',
         '--disable-dev-shm-usage',

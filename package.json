@@ -10,6 +10,6 @@
   "dependencies": {
     "fastify": "^5.0.0",
     "ioredis": "^5.4.0",
-    "playwright": "^1.60.0"
+    "playwright": "^1.61.0"
   }
 }
