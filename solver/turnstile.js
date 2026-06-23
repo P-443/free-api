@@ -216,53 +216,81 @@ export async function solveTurnstile(sitekey, siteurl, timeout = 45, proxy = nul
   const page = await context.newPage();
 
   try {
-    // Use fake page approach — much more reliable than injecting into real pages
+    // Intercept navigation to the real URL → serve our clean fake page
+    // This way Turnstile sees the correct domain origin (not about:blank)
     const html = buildTurnstilePage(sitekey, siteurl);
-    await page.setContent(html, { waitUntil: 'domcontentloaded' });
+    const cleanUrl = siteurl.replace(/\/$/, '');
+    await page.route(cleanUrl, route => route.fulfill({ body: html, contentType: 'text/html' }));
+    await page.route(cleanUrl + '/**', route => route.fulfill({ body: html, contentType: 'text/html' }));
 
-    // Wait for Turnstile API to load
-    await new Promise(r => setTimeout(r, 2000));
+    await page.goto(siteurl, { waitUntil: 'domcontentloaded', timeout: 15000 });
 
-    // Check for auto-solve (invisible widget)
-    let token = await extractToken(page);
+    // Wait for Turnstile widget to render (iframe or checkbox visible)
+    let token = null;
+    let iframeFound = false;
+
+    for (let i = 0; i < 8; i++) {
+      await new Promise(r => setTimeout(r, 1000));
+      token = await extractToken(page);
+      if (token) break;
+      const rect = await findTurnstileFrame(page);
+      if (rect) { iframeFound = true; break; }
+    }
+
+    // Auto-solved (invisible widget)
     if (token) {
-      console.log('[Turnstile] Auto-solved (invisible)');
+      console.log('[Turnstile] Auto-solved (invisible widget)');
       await context.close();
       return token;
     }
 
-    // Wait for iframe
-    let rect = null;
-    for (let i = 0; i < 20; i++) {
-      rect = await findTurnstileFrame(page);
-      if (rect) break;
-      await new Promise(r => setTimeout(r, 500));
+    if (!iframeFound) {
+      console.log('[Turnstile] No Turnstile iframe found — widget may not have loaded. Trying longer wait...');
+      // Longer wait — some sites are slow
+      for (let i = 0; i < 10; i++) {
+        await new Promise(r => setTimeout(r, 1000));
+        token = await extractToken(page);
+        if (token) break;
+        const rect = await findTurnstileFrame(page);
+        if (rect) { iframeFound = true; break; }
+      }
     }
 
-    // Click loop
+    if (token) {
+      console.log('[Turnstile] Solved after extended wait');
+      await context.close();
+      return token;
+    }
+
+    if (!iframeFound) {
+      throw new Error('Turnstile widget did not load — site may be blocking or sitekey is invalid');
+    }
+
+    // Click loop — managed/challenge mode
     const deadline = Date.now() + timeout * 1000;
     let clickCount = 0;
     let lastClick = 0;
+    let rect = await findTurnstileFrame(page);
 
     while (Date.now() < deadline) {
       token = await extractToken(page);
       if (token) break;
 
       const now = Date.now();
-      if (clickCount === 0 || (now - lastClick > 6000)) {
-        if (clickCount >= 5) {
-          // Too many clicks, wait
-          await new Promise(r => setTimeout(r, 1000));
+      if (clickCount === 0 || (now - lastClick > 5000)) {
+        if (clickCount >= 4) {
+          await new Promise(r => setTimeout(r, 1500));
           continue;
         }
         await humanClick(page, rect);
         lastClick = Date.now();
         clickCount++;
-        await new Promise(r => setTimeout(r, 1200));
+        console.log('[Turnstile] Click', clickCount);
+        await new Promise(r => setTimeout(r, 1500));
         rect = (await findTurnstileFrame(page)) || rect;
         continue;
       }
-      await new Promise(r => setTimeout(r, 500));
+      await new Promise(r => setTimeout(r, 800));
     }
 
     if (token) {
