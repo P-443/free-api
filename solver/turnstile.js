@@ -8,12 +8,6 @@
 
 import { chromium } from 'playwright';
 
-// ── Chrome path ──────────────────────────────────────────────
-function findChrome() {
-  if (process.env.CHROME_PATH) return process.env.CHROME_PATH;
-  return '/usr/bin/google-chrome-stable';
-}
-
 // ── Shared persistent browser ────────────────────────────────
 let sharedBrowser = null;
 let solveCount = 0;
@@ -40,15 +34,33 @@ async function getBrowser() {
         '--no-sandbox',
         '--disable-dev-shm-usage',
         '--disable-gpu',
+        '--disable-software-rasterizer',
+        '--disable-background-networking',
+        '--disable-background-timer-throttling',
+        '--disable-backgrounding-occluded-windows',
+        '--disable-renderer-backgrounding',
+        '--disable-sync',
+        '--disable-breakpad',
+        '--disable-crash-reporter',
+        '--no-crash-upload',
+        '--disable-client-side-phishing-detection',
+        '--disable-component-update',
+        '--disable-field-trial-config',
+        '--metrics-recording-only',
+        '--disable-extensions',
+        '--disable-default-apps',
+        '--disable-features=Translate,OptimizationHints,MediaRouter,IsolateOrigins,site-per-process',
         '--disable-blink-features=AutomationControlled',
-        '--disable-features=Translate,OptimizationHints,IsolateOrigins,site-per-process',
-        '--no-first-run',
-        '--no-default-browser-check',
-        '--no-zygote',
-        '--disable-setuid-sandbox',
-        '--disable-infobars',
-        '--hide-scrollbars',
-        '--mute-audio',
+        '--renderer-process-limit=1',
+        '--disable-low-res-tiling',
+        '--disable-threaded-animation',
+        '--disable-threaded-scrolling',
+        '--disable-smooth-scrolling',
+        '--disable-font-subpixel-positioning',
+        '--no-pings',
+        '--js-flags=--max-old-space-size=256',
+        '--log-level=3',
+        '--silent',
       ],
     });
     solveCount = 0;
@@ -70,12 +82,17 @@ async function createContext(browser, proxy) {
   if (proxy) opts.proxy = proxy;
   const ctx = await browser.newContext(opts);
 
-  // Anti-detection
+  // Anti-detection — same as hCaptcha solver
   await ctx.addInitScript(`
     Object.defineProperty(navigator, 'webdriver', {get: () => undefined});
     Object.defineProperty(navigator, 'plugins', {get: () => [1, 2, 3, 4, 5]});
     Object.defineProperty(navigator, 'languages', {get: () => ['en-US', 'en']});
     window.chrome = { runtime: {}, loadTimes: function() {}, csi: function() {}, app: {} };
+    const origQuery = window.navigator.permissions.query;
+    window.navigator.permissions.query = (params) =>
+      params.name === 'notifications'
+        ? Promise.resolve({state: Notification.permission, onchange: null})
+        : origQuery(params);
   `);
   return ctx;
 }
