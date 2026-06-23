@@ -145,6 +145,18 @@ export async function buildServer() {
   });
 
   // ═══════════════════════════════════════════════════════════
+  //  GET handlers — helpful messages when visiting from browser
+  // ═══════════════════════════════════════════════════════════
+  app.get('/solve/turnstile', async (req, reply) => {
+    reply.header('Content-Type', 'text/html; charset=utf-8');
+    return buildMethodHTML(`${req.protocol}://${req.hostname}`, '/solve/turnstile', 'POST', 'Cloudflare Turnstile Solver');
+  });
+  app.get('/solve/hcaptcha', async (req, reply) => {
+    reply.header('Content-Type', 'text/html; charset=utf-8');
+    return buildMethodHTML(`${req.protocol}://${req.hostname}`, '/solve/hcaptcha', 'POST', 'hCaptcha Solver');
+  });
+
+  // ═══════════════════════════════════════════════════════════
   //  GET HCAPTCHA TOKEN FROM POOL — instant (Redis required)
   // ═══════════════════════════════════════════════════════════
   app.get('/get-hcaptcha-token', async (_req, reply) => {
@@ -295,6 +307,26 @@ const hc = await fetch(API + "/solve/hcaptcha", {
 const pool = await fetch(API + "/get-hcaptcha-token").then(r => r.json());</pre></div>
 </div>
 <script>lucide.createIcons()<\/script></body></html>`;
+}
+
+function buildMethodHTML(host, path, method, title) {
+  const H = host || 'http://localhost:9000';
+  return `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>${title} — Free Captcha API</title><script src="https://unpkg.com/lucide@latest"><\/script><link rel="icon" type="image/svg+xml" href="/favicon.svg"><style>${baseCSS}
+.method-banner{text-align:center;padding:48px 24px}.method-badge{display:inline-block;padding:6px 20px;border-radius:6px;font-size:.85rem;font-weight:700;background:rgba(108,92,231,0.15);color:var(--primary);margin-bottom:16px}.method-banner h1{font-size:1.6rem;margin-bottom:8px}.method-banner p{color:var(--text2);max-width:500px;margin:0 auto 20px}</style></head><body>
+<header class="header"><a href="/"><svg width="22" height="22" viewBox="0 0 64 64" fill="none"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" style="stop-color:#7c6ff7"/><stop offset="50%" style="stop-color:#a78bfa"/><stop offset="100%" style="stop-color:#10d4a0"/></linearGradient></defs><polygon points="32,3 57,16 57,48 32,61 7,48 7,16" fill="none" stroke="url(#g)" stroke-width="4.5" stroke-linejoin="round"/><rect x="16" y="18" width="9" height="28" rx="2" fill="url(#g)"/><rect x="39" y="18" width="9" height="28" rx="2" fill="url(#g)"/><rect x="16" y="29" width="32" height="6" rx="2" fill="url(#g)"/></svg> <b style="color:#7c6ff7">H</b><b style="color:#10d4a0">C</b> Panel</a><div class="header-btns"><a href="/docs"><i data-lucide="file-text" style="width:14px;height:14px"></i> Docs</a><a href="/health"><i data-lucide="activity" style="width:14px;height:14px"></i> Health</a></div></header>
+<div class="container"><div class="method-banner">
+<span class="method-badge">${method}</span>
+<h1>${path}</h1>
+<p>${title} — this endpoint requires a <strong>${method}</strong> request. You cannot access it from the browser directly.</p>
+</div>
+<div class="card">
+<h2 style="margin-top:0"><i data-lucide="terminal"></i> cURL Example</h2>
+<pre>curl -X ${method} <span style="color:var(--success)">${H}</span>${path} \\
+  -H "Content-Type: application/json" \\
+  -d '{"sitekey":"YOUR_SITEKEY","siteurl":"https://example.com/"}'</pre></div>
+<div class="card" style="text-align:center">
+<a href="/docs" style="color:var(--primary);text-decoration:none;font-weight:600"><i data-lucide="arrow-left" style="width:14px;height:14px"></i> Back to API Docs</a>
+</div></div><script>lucide.createIcons()<\/script></body></html>`;
 }
 
 function buildHealthHTML(poolSize) {
