@@ -1,12 +1,12 @@
 // ═══════════════════════════════════════════════════════════════
 //  Cloudflare Turnstile Solver — Playwright (Node.js)
-//  Ported from Python nodriver → Playwright for unified stack
-//  Supports ANY sitekey + siteurl. Persistent browser.
+//  Fake page approach: injects Turnstile into a clean page
+//  with the target URL as referrer. Much faster & reliable.
 // ═══════════════════════════════════════════════════════════════
 
 import { chromium } from 'playwright';
 
-// ── Optimized browser flags ───────────────────────────────────
+// ── Browser flags — full stealth ─────────────────────────────
 const BROWSER_ARGS = [
   '--no-sandbox',
   '--disable-dev-shm-usage',
@@ -14,17 +14,22 @@ const BROWSER_ARGS = [
   '--disable-software-rasterizer',
   '--disable-background-networking',
   '--disable-background-timer-throttling',
+  '--disable-backgrounding-occluded-windows',
+  '--disable-renderer-backgrounding',
   '--disable-sync',
+  '--disable-breakpad',
+  '--disable-crash-reporter',
   '--disable-extensions',
   '--disable-default-apps',
   '--disable-blink-features=AutomationControlled',
-  '--disable-features=Translate,OptimizationHints,MediaRouter,IsolateOrigins',
+  '--disable-features=Translate,OptimizationHints,MediaRouter,IsolateOrigins,site-per-process',
   '--renderer-process-limit=1',
+  '--no-pings',
   '--log-level=3',
   '--silent',
 ];
 
-// ── Anti-detection injection ──────────────────────────────────
+// ── Anti-detection — comprehensive ───────────────────────────
 const ANTI_DETECTION = `
   Object.defineProperty(navigator, 'webdriver', {get: () => undefined});
   Object.defineProperty(navigator, 'plugins', {get: () => [1, 2, 3, 4, 5]});
@@ -35,16 +40,56 @@ const ANTI_DETECTION = `
     params.name === 'notifications'
       ? Promise.resolve({state: Notification.permission, onchange: null})
       : origQuery(params);
+  // Override navigator properties
+  Object.defineProperty(navigator, 'hardwareConcurrency', {get: () => 8});
+  Object.defineProperty(navigator, 'deviceMemory', {get: () => 8});
 `;
 
-// ── Shared browser singleton ──────────────────────────────────
+// ── Build fake Turnstile page ─────────────────────────────────
+function buildTurnstilePage(sitekey, siteurl) {
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Turnstile Solver</title>
+<style>
+  body { display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; background: #f0f0f0; font-family: Arial, sans-serif; }
+  .box { text-align: center; padding: 30px; background: white; border-radius: 10px; box-shadow: 0 2px 16px rgba(0,0,0,0.08); }
+  .box h3 { margin: 0 0 16px; color: #333; font-size: 15px; }
+</style>
+<script>
+  window._tsToken = null;
+  window._tsReady = false;
+  function onLoad() {
+    window._tsReady = true;
+    if (window.turnstile) {
+      window.turnstile.render('.cf-turnstile', {
+        sitekey: '${sitekey}',
+        callback: function(tk) { window._tsToken = tk; },
+        'error-callback': function(e) { console.error('Turnstile error:', e); }
+      });
+    }
+  }
+</script>
+<script src="https://challenges.cloudflare.com/turnstile/v0/api.js?onload=onLoad&render=explicit" async defer></script>
+</head>
+<body>
+<div class="box">
+  <h3>Verifying you are human...</h3>
+  <div class="cf-turnstile" data-sitekey="${sitekey}"></div>
+</div>
+</body>
+</html>`;
+}
+
+// ── Persistent browser singleton ──────────────────────────────
 let sharedBrowser = null;
 let solveCount = 0;
-const MAX_SOLVES_BEFORE_RESTART = 150;
+const MAX_SOLVES_BEFORE_RESTART = 100;
 
 async function getBrowser() {
   if (sharedBrowser && solveCount >= MAX_SOLVES_BEFORE_RESTART) {
-    console.log('[Turnstile] Periodic restart (every 150 solves)...');
+    console.log('[Turnstile] Periodic restart (every 100 solves)...');
     await sharedBrowser.close().catch(() => {});
     sharedBrowser = null;
     solveCount = 0;
@@ -75,15 +120,19 @@ async function getBrowser() {
   return sharedBrowser;
 }
 
-// ── Create optimized context ──────────────────────────────────
-async function createContext(browser, proxyConfig) {
+// ── Create context ────────────────────────────────────────────
+async function createContext(browser, proxyConfig, siteurl) {
   const opts = {
     viewport: { width: 1280, height: 800 },
-    userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36',
+    userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/148.0.0.0 Safari/537.36',
     locale: 'en-US',
     timezoneId: 'America/New_York',
     deviceScaleFactor: 1,
     isMobile: false,
+    // Set referrer to target site so Turnstile sees the right origin
+    extraHTTPHeaders: {
+      'Referer': siteurl,
+    },
   };
 
   if (proxyConfig) {
@@ -92,7 +141,7 @@ async function createContext(browser, proxyConfig) {
 
   const context = await browser.newContext(opts);
 
-  // Block heavy resources for speed
+  // Block heavy resources
   await context.route('**/*', (route) => {
     const type = route.request().resourceType();
     if (type === 'image' || type === 'font' || type === 'media' ||
@@ -106,106 +155,86 @@ async function createContext(browser, proxyConfig) {
   return context;
 }
 
-// ── Inject Turnstile widget into REAL page ────────────────────
-async function injectTurnstile(page, sitekey) {
-  await page.evaluate((key) => {
-    if (document.getElementById('_ts_box')) return;
-    window._tsToken = null;
-    const wrap = document.createElement('div');
-    wrap.id = '_ts_box';
-    wrap.style = 'position:fixed;top:20px;left:20px;z-index:2147483647;background:white;padding:10px;border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,0.15);';
-    document.body.appendChild(wrap);
-    window._tsLoad = function () {
-      turnstile.render('#_ts_box', {
-        sitekey: key,
-        callback: function(tk) { window._tsToken = tk; }
-      });
-    };
-    const s = document.createElement('script');
-    s.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?onload=_tsLoad&render=explicit';
-    s.async = true;
-    document.head.appendChild(s);
-  }, sitekey);
-}
-
-// ── Extract token from DOM ────────────────────────────────────
+// ── Token extraction ──────────────────────────────────────────
 async function extractToken(page) {
   return page.evaluate(() => {
     if (window._tsToken) return window._tsToken;
-    const inp = document.querySelector('#_ts_box [name="cf-turnstile-response"]');
-    return (inp && inp.value) ? inp.value : null;
-  });
-}
-
-// ── Find Cloudflare iframe ────────────────────────────────────
-async function getCFIframeRect(page) {
-  return page.evaluate(() => {
-    for (const f of document.querySelectorAll('iframe')) {
-      const src = f.src || f.getAttribute('src') || '';
-      if (!src.includes('challenges.cloudflare.com')) continue;
-      const r = f.getBoundingClientRect();
-      if (r.width > 50 && r.height > 20) return { x: r.x, y: r.y, w: r.width, h: r.height };
+    // Try hidden input
+    const inp = document.querySelector('[name="cf-turnstile-response"]');
+    if (inp && inp.value) return inp.value;
+    // Try iframe
+    const iframes = document.querySelectorAll('iframe');
+    for (const f of iframes) {
+      try {
+        const doc = f.contentDocument || f.contentWindow?.document;
+        if (doc) {
+          const ta = doc.querySelector('[name="cf-turnstile-response"]');
+          if (ta && ta.value) return ta.value;
+        }
+      } catch(e) {}
     }
     return null;
   });
 }
 
-// ── Human-like click on checkbox ──────────────────────────────
+// ── Find Turnstile iframe ─────────────────────────────────────
+async function findTurnstileFrame(page) {
+  return page.evaluate(() => {
+    for (const f of document.querySelectorAll('iframe')) {
+      const src = f.src || '';
+      if (src.includes('challenges.cloudflare.com')) {
+        const r = f.getBoundingClientRect();
+        if (r.width > 50 && r.height > 20) return { x: r.x, y: r.y, w: r.width, h: r.height };
+      }
+    }
+    return null;
+  });
+}
+
+// ── Human-like click ──────────────────────────────────────────
 async function humanClick(page, rect) {
-  let cx, cy;
+  let cx = 20 + 28 + (Math.random() * 6 - 3);
+  let cy = 20 + 32 + (Math.random() * 6 - 3);
   if (rect) {
-    cx = rect.x + 28 + (Math.random() * 6 - 3);
-    cy = rect.y + rect.h / 2 + (Math.random() * 6 - 3);
-  } else {
-    cx = 20 + 28 + (Math.random() * 6 - 3);
-    cy = 20 + 32 + (Math.random() * 6 - 3);
+    cx = rect.x + rect.w * 0.4 + (Math.random() * 12 - 6);
+    cy = rect.y + rect.h * 0.5 + (Math.random() * 8 - 4);
   }
-  // Move from random position (simulate human)
-  await page.mouse.move(cx - 80 + (Math.random() * 40), cy - 20 + (Math.random() * 20));
-  await new Promise(r => setTimeout(r, 100 + Math.random() * 100));
+  // Move gradually
+  await page.mouse.move(cx - 60 + Math.random() * 30, cy - 20 + Math.random() * 15);
+  await new Promise(r => setTimeout(r, 80 + Math.random() * 120));
   await page.mouse.move(cx, cy);
-  await new Promise(r => setTimeout(r, 50 + Math.random() * 50));
+  await new Promise(r => setTimeout(r, 40 + Math.random() * 60));
   await page.mouse.click(cx, cy);
 }
 
 // ═══════════════════════════════════════════════════════════════
-//  MAIN SOLVE — any sitekey, any siteurl
+//  MAIN SOLVE
 // ═══════════════════════════════════════════════════════════════
-
-/**
- * Solve Cloudflare Turnstile on any website.
- *
- * @param {string} sitekey  - Turnstile sitekey from the target page
- * @param {string} siteurl  - Full URL of the page with the Turnstile widget
- * @param {number} timeout  - Max seconds to wait (default 45)
- * @param {object} proxy    - Optional proxy { server, username, password }
- * @returns {string}        - The token (e.g. "0.abc123...")
- */
 export async function solveTurnstile(sitekey, siteurl, timeout = 45, proxy = null) {
   const browser = await getBrowser();
-  const context = await createContext(browser, proxy);
+  const context = await createContext(browser, proxy, siteurl);
   const page = await context.newPage();
 
   try {
-    // Navigate to target page
-    await page.goto(siteurl, { waitUntil: 'domcontentloaded', timeout: 15000 });
-    await new Promise(r => setTimeout(r, 1500 + Math.random() * 1000));
+    // Use fake page approach — much more reliable than injecting into real pages
+    const html = buildTurnstilePage(sitekey, siteurl);
+    await page.setContent(html, { waitUntil: 'domcontentloaded' });
 
-    // Inject Turnstile widget
-    await injectTurnstile(page, sitekey);
-    await new Promise(r => setTimeout(r, 4000));
+    // Wait for Turnstile API to load
+    await new Promise(r => setTimeout(r, 2000));
 
-    // Check auto-solve (invisible widget)
+    // Check for auto-solve (invisible widget)
     let token = await extractToken(page);
     if (token) {
+      console.log('[Turnstile] Auto-solved (invisible)');
       await context.close();
       return token;
     }
 
-    // Wait for checkbox iframe
+    // Wait for iframe
     let rect = null;
-    for (let i = 0; i < 15; i++) {
-      rect = await getCFIframeRect(page);
+    for (let i = 0; i < 20; i++) {
+      rect = await findTurnstileFrame(page);
       if (rect) break;
       await new Promise(r => setTimeout(r, 500));
     }
@@ -220,28 +249,29 @@ export async function solveTurnstile(sitekey, siteurl, timeout = 45, proxy = nul
       if (token) break;
 
       const now = Date.now();
-      if (clickCount === 0 || (!token && now - lastClick > 6000)) {
-        if (clickCount >= 3) {
-          await new Promise(r => setTimeout(r, 300));
+      if (clickCount === 0 || (now - lastClick > 6000)) {
+        if (clickCount >= 5) {
+          // Too many clicks, wait
+          await new Promise(r => setTimeout(r, 1000));
           continue;
         }
         await humanClick(page, rect);
         lastClick = Date.now();
         clickCount++;
-        await new Promise(r => setTimeout(r, 1000));
-        rect = (await getCFIframeRect(page)) || rect;
+        await new Promise(r => setTimeout(r, 1200));
+        rect = (await findTurnstileFrame(page)) || rect;
         continue;
       }
-
-      await new Promise(r => setTimeout(r, 300));
+      await new Promise(r => setTimeout(r, 500));
     }
 
-    if (!token) {
-      throw new Error(`Turnstile token not obtained within ${timeout}s`);
+    if (token) {
+      console.log('[Turnstile] Solved after', clickCount, 'clicks');
+      await context.close();
+      return token;
     }
 
-    await context.close();
-    return token;
+    throw new Error(`Turnstile token not obtained within ${timeout}s`);
 
   } catch (e) {
     await context.close().catch(() => {});
@@ -249,7 +279,6 @@ export async function solveTurnstile(sitekey, siteurl, timeout = 45, proxy = nul
   }
 }
 
-// ── Cleanup ───────────────────────────────────────────────────
 export async function shutdownTurnstile() {
   if (sharedBrowser) {
     console.log('[Turnstile] Closing persistent browser...');
