@@ -7,29 +7,11 @@
 // ═══════════════════════════════════════════════════════════════
 
 import { chromium } from 'playwright';
-import { existsSync, mkdirSync } from 'fs';
-import { homedir, tmpdir } from 'os';
-import { join } from 'path';
 
-// ── Chrome path (like Python auto-detect) ────────────────────
+// ── Chrome path ──────────────────────────────────────────────
 function findChrome() {
   if (process.env.CHROME_PATH) return process.env.CHROME_PATH;
-  const candidates = [
-    '/usr/bin/google-chrome-stable',
-    '/usr/bin/google-chrome',
-    '/usr/bin/chromium-browser',
-    '/usr/bin/chromium',
-  ];
-  for (const p of candidates) if (existsSync(p)) return p;
-  return candidates[0]; // fallback
-}
-
-// ── Profile dir (persistent profile = harder to detect) ──────
-function getProfileDir() {
-  if (process.env.TS_PROFILE_DIR) return process.env.TS_PROFILE_DIR;
-  const dir = join(tmpdir(), 'ts_profile');
-  if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
-  return dir;
+  return '/usr/bin/google-chrome-stable';
 }
 
 // ── Shared persistent browser ────────────────────────────────
