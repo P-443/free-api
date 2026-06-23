@@ -25,7 +25,7 @@ async function startPythonSolver() {
 
   console.log('[Main] Starting Python Turnstile solver (nodriver)...');
 
-  // Start Xvfb if on Linux
+  // Start Xvfb if on Linux and not already running
   const isLinux = process.platform === 'linux';
   if (isLinux && !process.env.DISPLAY) {
     try {
@@ -34,7 +34,7 @@ async function startPythonSolver() {
       console.log('[Main] Xvfb started on :99');
       await new Promise(r => setTimeout(r, 500));
     } catch (e) {
-      console.log('[Main] Xvfb failed (may already be running):', e.message);
+      console.log('[Main] Xvfb start error:', e.message);
     }
   }
 

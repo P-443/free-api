@@ -30,5 +30,5 @@ COPY . .
 # ── Ports ────────────────────────────────────────────────────
 EXPOSE 9000 8191
 
-# ── Start both services ──────────────────────────────────────
-CMD ["bash", "-c", "Xvfb :99 -screen 0 1280x900x24 & sleep 1 && export DISPLAY=:99 && cd /app/python_solver && python3 service.py & sleep 2 && cd /app && node main.js"]
+# ── main.js auto-starts Xvfb + Python solver + Node.js API ──
+CMD ["node", "main.js"]
