@@ -17,7 +17,7 @@ RUN wget -q https://dl.google.com/linux/direct/google-chrome-stable_current_amd6
 
 # ── Python nodriver solver ───────────────────────────────────
 COPY python_solver/requirements.txt ./python_solver/
-RUN pip install --break-system-packages -r python_solver/requirements.txt
+RUN pip install -r python_solver/requirements.txt
 COPY python_solver/ ./python_solver/
 
 # ── Node.js deps ─────────────────────────────────────────────
