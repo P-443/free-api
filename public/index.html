@@ -750,20 +750,54 @@ function getAvgSpeed() {
 
 // ═════════════ QUICK SOLVE ═════════════
 async function quickSolve() {
+  const btn = document.getElementById('quickSolveBtn');
+  const box = document.getElementById('quickTokenBox');
+  const text = document.getElementById('quickTokenText');
+  const el = document.getElementById('quickElapsed');
   const type = document.getElementById('quickType').value;
-  if (type === 'turnstile') {
-    const token = await doSolveTurnstile(
-      document.getElementById('quickKey').value,
-      document.getElementById('quickUrl').value,
-      parseInt(document.getElementById('quickTimeout').value)
-    );
-    if (token) { document.getElementById('quickTokenText').textContent = token; document.getElementById('quickTokenBox').classList.add('show'); }
-  } else {
-    const token = await doSolveHCaptcha(
-      document.getElementById('quickKey').value,
-      document.getElementById('quickUrl').value
-    );
-    if (token) { document.getElementById('quickTokenText').textContent = token; document.getElementById('quickTokenBox').classList.add('show'); }
+  const key = document.getElementById('quickKey').value.trim();
+  const url = document.getElementById('quickUrl').value.trim();
+  if (!key || !url) return toast('Site Key and Site URL are required', 'error');
+
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Solving...';
+  box.classList.remove('show');
+  el.style.display = 'none';
+
+  const t0 = performance.now();
+  try {
+    let token = null;
+    if (type === 'turnstile') {
+      token = await solveTurnstileCore(key, url, parseInt(document.getElementById('quickTimeout').value) || 45);
+    } else {
+      token = await solveHCaptchaCore(key, url);
+    }
+    const elapsed = ((performance.now() - t0) / 1000).toFixed(2);
+    if (token) {
+      text.textContent = token;
+      box.classList.add('show');
+      el.textContent = `✅ Solved in ${elapsed}s`;
+      el.style.display = 'block';
+      addHistory(type, token, elapsed, 'success');
+      totalSolved++; solveTimes.push(parseFloat(elapsed)); saveState();
+      toast(`✅ ${type} solved in ${elapsed}s`, 'success');
+    } else {
+      el.textContent = '❌ All attempts failed';
+      el.style.display = 'block';
+      addHistory(type, '—', elapsed, 'failed');
+      toast('❌ Failed to solve', 'error');
+    }
+  } catch (e) {
+    const elapsed = ((performance.now() - t0) / 1000).toFixed(2);
+    el.textContent = `❌ ${e.message}`;
+    el.style.display = 'block';
+    addHistory(type, '—', elapsed, 'error');
+    toast('❌ ' + e.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<i data-lucide="play"></i> Solve Now';
+    lucide.createIcons();
+    updateStats();
   }
 }
 
@@ -785,32 +819,22 @@ async function doSolveTurnstile(key, url, timeout = 45) {
   const t0 = performance.now();
   try {
     const body = { sitekey: key, siteurl: url, timeout };
-    const ps = document.getElementById('tsProxy').value.trim();
-    if (ps) {
-      const [auth, hp] = ps.split('@');
-      if (auth && hp) {
-        const [u, p] = auth.replace(/^https?:\/\//, '').split(':');
-        const [h, port] = hp.split(':');
-        body.proxy = { server: `http://${h}:${port}`, username: u, password: p };
-      }
-    }
-    const r = await fetch(apiUrl() + '/solve/turnstile', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body) });
-    const d = await r.json();
+    const token = await solveTurnstileCore(key, url, timeout, body);
     const elapsed = ((performance.now() - t0) / 1000).toFixed(2);
-    if (d.status === 'success') {
-      document.getElementById('tsTokenText').textContent = d.token;
+    if (token) {
+      document.getElementById('tsTokenText').textContent = token;
       document.getElementById('tsTokenBox').classList.add('show');
       document.getElementById('tsElapsed').textContent = `✅ Solved in ${elapsed}s`;
       document.getElementById('tsElapsed').style.display = 'block';
-      addHistory('turnstile', d.token, elapsed, 'success');
+      addHistory('turnstile', token, elapsed, 'success');
       totalSolved++; solveTimes.push(parseFloat(elapsed)); saveState();
       toast(`✅ Turnstile solved in ${elapsed}s`, 'success');
-      return d.token;
+      return token;
     } else {
-      document.getElementById('tsElapsed').textContent = `❌ ${d.detail}`;
+      document.getElementById('tsElapsed').textContent = '❌ Failed to solve';
       document.getElementById('tsElapsed').style.display = 'block';
       addHistory('turnstile', '—', elapsed, 'failed');
-      toast('❌ ' + d.detail, 'error');
+      toast('❌ Failed to solve', 'error');
       return null;
     }
   } catch (e) {
@@ -826,6 +850,40 @@ async function doSolveTurnstile(key, url, timeout = 45) {
     lucide.createIcons();
     updateStats();
   }
+}
+
+// ═════════════ CORE SOLVERS (pure, no DOM) ═════════════
+async function solveTurnstileCore(key, url, timeout = 45, extraBody = {}) {
+  const body = { sitekey: key, siteurl: url, timeout, ...extraBody };
+  // Read proxy from tsProxy field if available
+  try {
+    const ps = document.getElementById('tsProxy')?.value?.trim();
+    if (ps) {
+      const [auth, hp] = ps.split('@');
+      if (auth && hp) {
+        const [u, p] = auth.replace(/^https?:\/\//, '').split(':');
+        const [h, port] = hp.split(':');
+        body.proxy = { server: `http://${h}:${port}`, username: u, password: p };
+      }
+    }
+  } catch(e) {}
+  const r = await fetch(apiUrl() + '/solve/turnstile', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body) });
+  const d = await r.json();
+  if (d.status === 'success') return d.token;
+  throw new Error(d.detail || 'Solve failed');
+}
+
+async function solveHCaptchaCore(key, url) {
+  const body = { sitekey: key, siteurl: url };
+  try {
+    const server = document.getElementById('hcProxyServer')?.value?.trim();
+    const auth = document.getElementById('hcProxyAuth')?.value?.trim();
+    if (server && auth) { const [u, p] = auth.split(':'); body.proxy = { server, username: u, password: p }; }
+  } catch(e) {}
+  const r = await fetch(apiUrl() + '/solve/hcaptcha', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body) });
+  const d = await r.json();
+  if (d.status === 'success') return d.token;
+  throw new Error(d.detail || 'Solve failed');
 }
 
 async function getTurnstileFromPool() {
@@ -869,27 +927,22 @@ async function doSolveHCaptcha(key, url) {
   document.getElementById('hcElapsed').style.display = 'none';
   const t0 = performance.now();
   try {
-    const body = { sitekey: key, siteurl: url };
-    const server = document.getElementById('hcProxyServer').value.trim();
-    const auth = document.getElementById('hcProxyAuth').value.trim();
-    if (server && auth) { const [u, p] = auth.split(':'); body.proxy = { server, username: u, password: p }; }
-    const r = await fetch(apiUrl() + '/solve/hcaptcha', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body) });
-    const d = await r.json();
+    const token = await solveHCaptchaCore(key, url);
     const elapsed = ((performance.now() - t0) / 1000).toFixed(2);
-    if (d.status === 'success') {
-      document.getElementById('hcTokenText').textContent = d.token;
+    if (token) {
+      document.getElementById('hcTokenText').textContent = token;
       document.getElementById('hcTokenBox').classList.add('show');
       document.getElementById('hcElapsed').textContent = `✅ Solved in ${elapsed}s`;
       document.getElementById('hcElapsed').style.display = 'block';
-      addHistory('hcaptcha', d.token, elapsed, 'success');
+      addHistory('hcaptcha', token, elapsed, 'success');
       totalSolved++; solveTimes.push(parseFloat(elapsed)); saveState();
       toast(`✅ hCaptcha solved in ${elapsed}s`, 'success');
-      return d.token;
+      return token;
     } else {
-      document.getElementById('hcElapsed').textContent = `❌ ${d.detail}`;
+      document.getElementById('hcElapsed').textContent = '❌ Failed to solve';
       document.getElementById('hcElapsed').style.display = 'block';
       addHistory('hcaptcha', '—', elapsed, 'failed');
-      toast('❌ ' + d.detail, 'error');
+      toast('❌ Failed to solve', 'error');
       return null;
     }
   } catch (e) {
