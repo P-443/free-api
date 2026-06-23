@@ -93,7 +93,8 @@ export async function buildServer() {
   });
 
   // ═══════════════════════════════════════════════════════════
-  //  SOLVE TURNSTILE — direct solve, any site
+  //  SOLVE TURNSTILE — uses Python nodriver solver (proven)
+  //  Falls back to built-in Playwright solver if Python unavailable
   // ═══════════════════════════════════════════════════════════
   app.post('/solve/turnstile', async (req, reply) => {
     const { sitekey, siteurl, timeout, proxy } = req.body || {};
@@ -103,11 +104,35 @@ export async function buildServer() {
     }
 
     const t0 = Date.now();
+    const PYTHON_SOLVER = process.env.TURNSTILE_SOLVER_URL || 'http://127.0.0.1:8191/solve';
+
+    // Try Python nodriver solver first (proven working)
     try {
-      console.log(`[API] Turnstile solve: sitekey=${sitekey.slice(0, 20)}... url=${siteurl}`);
+      console.log(`[API] Turnstile via Python: sitekey=${sitekey.slice(0, 20)}... url=${siteurl}`);
+      const pyResp = await fetch(PYTHON_SOLVER, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sitekey, siteurl, timeout: timeout || 45 }),
+        signal: AbortSignal.timeout((timeout || 45) * 1000 + 30000),
+      });
+      const pyData = await pyResp.json();
+      if (pyResp.ok && (pyData.token || pyData.status === 'success')) {
+        const elapsed = ((Date.now() - t0) / 1000).toFixed(2);
+        const tok = pyData.token || pyData;
+        console.log(`[API] Python solved in ${elapsed}s`);
+        return { status: 'success', token: typeof tok === 'string' ? tok : tok.token, elapsed: parseFloat(elapsed) };
+      }
+      console.log('[API] Python solver failed, trying built-in...');
+    } catch (pyErr) {
+      console.log('[API] Python solver unreachable, using built-in:', pyErr.message);
+    }
+
+    // Fallback: built-in Playwright solver
+    try {
+      console.log(`[API] Turnstile built-in: sitekey=${sitekey.slice(0, 20)}... url=${siteurl}`);
       const token = await solveTurnstile(sitekey, siteurl, timeout || 45, proxy || null);
       const elapsed = ((Date.now() - t0) / 1000).toFixed(2);
-      console.log(`[API] Turnstile solved in ${elapsed}s  token=${token.slice(0, 20)}...`);
+      console.log(`[API] Built-in solved in ${elapsed}s`);
       return { status: 'success', token, elapsed: parseFloat(elapsed) };
     } catch (e) {
       const elapsed = ((Date.now() - t0) / 1000).toFixed(2);
