@@ -1,0 +1,15 @@
+{
+  "name": "free-captcha-api",
+  "version": "3.0.0",
+  "type": "module",
+  "description": "Unified API for solving Cloudflare Turnstile & hCaptcha — any site, any key",
+  "scripts": {
+    "start": "node main.js",
+    "dev": "node --watch main.js"
+  },
+  "dependencies": {
+    "fastify": "^5.0.0",
+    "ioredis": "^5.4.0",
+    "playwright": "^1.60.0"
+  }
+}

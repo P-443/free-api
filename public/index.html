@@ -1,0 +1,1195 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HC Panel — Captcha Management Dashboard</title>
+<style>
+/* ═════════════════════════════════════════════════════════════ */
+/*  DESIGN SYSTEM — Dark Glassmorphism Theme                   */
+/* ═════════════════════════════════════════════════════════════ */
+:root {
+  --bg: #0a0a0f;
+  --surface: #13131a;
+  --surface2: #1a1a25;
+  --border: #252535;
+  --primary: #6c5ce7;
+  --primary-glow: rgba(108, 92, 231, 0.3);
+  --success: #00d2a0;
+  --success-glow: rgba(0, 210, 160, 0.3);
+  --warning: #f9a825;
+  --danger: #ff4757;
+  --text: #e8e8f0;
+  --text2: #9090a0;
+  --radius: 14px;
+  --radius-sm: 8px;
+  --font: 'Segoe UI', 'Cairo', Tahoma, sans-serif;
+  --mono: 'Cascadia Code', 'Fira Code', 'JetBrains Mono', monospace;
+  --transition: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: var(--font);
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  background-image:
+    radial-gradient(ellipse at 20% 0%, rgba(108, 92, 231, 0.08) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 100%, rgba(0, 210, 160, 0.05) 0%, transparent 50%);
+}
+
+/* ── Layout ────────────────────────────────────────────────── */
+.app { display: flex; min-height: 100vh; }
+
+/* Sidebar */
+.sidebar {
+  width: 260px;
+  background: var(--surface);
+  border-left: 1px solid var(--border);
+  padding: 24px 0;
+  display: flex;
+  flex-direction: column;
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  right: 0;
+  z-index: 100;
+}
+.sidebar-logo {
+  padding: 0 24px 24px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 16px;
+}
+.sidebar-logo h1 {
+  font-size: 1.4rem;
+  font-weight: 800;
+  background: linear-gradient(135deg, var(--primary), #a78bfa);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  letter-spacing: -0.5px;
+}
+.sidebar-logo span {
+  font-size: 0.7rem;
+  color: var(--text2);
+  text-transform: uppercase;
+  letter-spacing: 2px;
+}
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 24px;
+  color: var(--text2);
+  cursor: pointer;
+  transition: var(--transition);
+  border-right: 3px solid transparent;
+  font-size: 0.9rem;
+  margin: 2px 0;
+}
+.nav-item:hover { color: var(--text); background: rgba(255,255,255,0.03); }
+.nav-item.active {
+  color: var(--primary);
+  background: rgba(108, 92, 231, 0.08);
+  border-right-color: var(--primary);
+}
+.nav-item .icon { font-size: 1.2rem; width: 24px; text-align: center; }
+.nav-badge {
+  margin-right: auto;
+  background: var(--success);
+  color: #000;
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 20px;
+}
+
+/* Main */
+.main {
+  flex: 1;
+  margin-right: 260px;
+  padding: 32px 40px;
+  max-width: calc(100vw - 260px);
+}
+
+/* ── Top Bar ───────────────────────────────────────────────── */
+.topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 32px;
+}
+.topbar h2 { font-size: 1.6rem; font-weight: 700; }
+.status-dot {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.85rem;
+  padding: 8px 16px;
+  border-radius: 30px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+}
+.status-dot::before {
+  content: '';
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--success);
+  box-shadow: 0 0 8px var(--success-glow);
+  animation: pulse 2s infinite;
+}
+.status-dot.offline::before { background: var(--danger); animation: none; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+.config-bar {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+.config-bar input {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 8px 14px;
+  border-radius: var(--radius-sm);
+  font-family: var(--mono);
+  font-size: 0.8rem;
+  width: 280px;
+  outline: none;
+  transition: var(--transition);
+}
+.config-bar input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-glow); }
+.config-bar button {
+  background: var(--primary);
+  border: none;
+  color: #fff;
+  padding: 8px 16px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.8rem;
+  transition: var(--transition);
+}
+.config-bar button:hover { box-shadow: 0 0 20px var(--primary-glow); transform: translateY(-1px); }
+
+/* ── Stats Grid ────────────────────────────────────────────── */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 28px;
+}
+.stat-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px 24px;
+  position: relative;
+  overflow: hidden;
+}
+.stat-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+}
+.stat-card.green::before { background: var(--success); box-shadow: 0 0 12px var(--success-glow); }
+.stat-card.purple::before { background: var(--primary); box-shadow: 0 0 12px var(--primary-glow); }
+.stat-card.orange::before { background: var(--warning); }
+.stat-card.blue::before { background: #3498db; }
+.stat-label { font-size: 0.75rem; color: var(--text2); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px; }
+.stat-value { font-size: 2rem; font-weight: 800; font-family: var(--mono); }
+.stat-sub { font-size: 0.7rem; color: var(--text2); margin-top: 4px; }
+
+/* ── Content Sections ──────────────────────────────────────── */
+.section { display: none; }
+.section.active { display: block; }
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 24px;
+  margin-bottom: 20px;
+}
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+.card-title { font-size: 1.1rem; font-weight: 700; }
+.card-subtitle { font-size: 0.8rem; color: var(--text2); }
+
+/* ── Form Grid ─────────────────────────────────────────────── */
+.form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+.form-group { display: flex; flex-direction: column; gap: 6px; }
+.form-group label { font-size: 0.8rem; color: var(--text2); font-weight: 600; }
+.form-group input, .form-group textarea, .form-group select {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  font-family: var(--font);
+  font-size: 0.85rem;
+  outline: none;
+  transition: var(--transition);
+  resize: vertical;
+}
+.form-group input:focus, .form-group textarea:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--primary-glow);
+}
+.form-group textarea { min-height: 70px; font-family: var(--mono); font-size: 0.75rem; }
+.form-full { grid-column: 1 / -1; }
+
+.btn {
+  padding: 12px 28px;
+  border: none;
+  border-radius: var(--radius-sm);
+  font-weight: 700;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: var(--transition);
+  font-family: var(--font);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.btn-primary { background: var(--primary); color: #fff; }
+.btn-primary:hover { box-shadow: 0 0 24px var(--primary-glow); transform: translateY(-2px); }
+.btn-success { background: var(--success); color: #000; }
+.btn-success:hover { box-shadow: 0 0 24px var(--success-glow); transform: translateY(-2px); }
+.btn-outline {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text);
+}
+.btn-outline:hover { border-color: var(--primary); background: rgba(108,92,231,0.05); }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none !important; }
+
+/* ── Token Display ─────────────────────────────────────────── */
+.token-box {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 16px;
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  word-break: break-all;
+  color: var(--success);
+  position: relative;
+  margin-top: 16px;
+  display: none;
+}
+.token-box.show { display: block; animation: fadeIn 0.3s ease; }
+@keyframes fadeIn { from{opacity:0;transform:translateY(-8px)} to{opacity:1;transform:translateY(0)} }
+.copy-btn {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  background: var(--primary);
+  border: none;
+  color: #fff;
+  padding: 4px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.7rem;
+  font-weight: 600;
+}
+.copy-btn:hover { background: #7c6ff7; }
+
+/* ── Table ─────────────────────────────────────────────────── */
+.table-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; }
+th, td { padding: 12px 16px; text-align: right; font-size: 0.85rem; }
+th { color: var(--text2); font-weight: 600; border-bottom: 2px solid var(--border); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px; }
+td { border-bottom: 1px solid var(--border); }
+tr:hover td { background: rgba(255,255,255,0.02); }
+.token-cell { font-family: var(--mono); font-size: 0.7rem; max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.badge {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: 20px;
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+.badge-success { background: rgba(0,210,160,0.15); color: var(--success); }
+.badge-purple { background: rgba(108,92,231,0.15); color: var(--primary); }
+
+/* ── Pool Display ──────────────────────────────────────────── */
+.pool-meter {
+  width: 100%;
+  height: 8px;
+  background: var(--surface2);
+  border-radius: 10px;
+  margin: 12px 0;
+  overflow: hidden;
+}
+.pool-fill {
+  height: 100%;
+  border-radius: 10px;
+  transition: width 0.6s ease, background 0.6s ease;
+}
+.pool-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 20px;
+}
+
+/* ── Loading ───────────────────────────────────────────────── */
+.spinner {
+  display: inline-block;
+  width: 16px; height: 16px;
+  border: 2px solid transparent;
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+}
+@keyframes spin { to{transform:rotate(360deg)} }
+
+/* ── Toast ─────────────────────────────────────────────────── */
+.toast-container {
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.toast {
+  padding: 12px 24px;
+  border-radius: var(--radius-sm);
+  font-weight: 600;
+  font-size: 0.85rem;
+  animation: slideIn 0.3s ease;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+}
+.toast-success { background: var(--success); color: #000; }
+.toast-error { background: var(--danger); color: #fff; }
+@keyframes slideIn { from{opacity:0;transform:translateY(-20px)} to{opacity:1;transform:translateY(0)} }
+
+/* ── Responsive ────────────────────────────────────────────── */
+@media (max-width: 1024px) {
+  .stats-grid { grid-template-columns: repeat(2, 1fr); }
+  .form-grid { grid-template-columns: 1fr; }
+  .pool-grid { grid-template-columns: 1fr; }
+}
+@media (max-width: 768px) {
+  .sidebar { display: none; }
+  .main { margin-right: 0; max-width: 100vw; padding: 20px; }
+  .stats-grid { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+
+<div class="app">
+  <!-- ═════════════ SIDEBAR ═════════════ -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <h1>HC Panel</h1>
+      <span>Captcha Management</span>
+    </div>
+    <nav>
+      <div class="nav-item active" data-section="dashboard">
+        <span class="icon">📊</span> لوحة التحكم
+        <span class="nav-badge" id="poolBadge">0</span>
+      </div>
+      <div class="nav-item" data-section="turnstile">
+        <span class="icon">🛡️</span> Turnstile Solver
+      </div>
+      <div class="nav-item" data-section="hcaptcha">
+        <span class="icon">🔐</span> hCaptcha Solver
+      </div>
+      <div class="nav-item" data-section="pool">
+        <span class="icon">🏊</span> Token Pool
+      </div>
+      <div class="nav-item" data-section="history">
+        <span class="icon">📋</span> السجل
+      </div>
+      <div class="nav-item" data-section="docs">
+        <span class="icon">📚</span> API Docs
+      </div>
+    </nav>
+    <div style="margin-top:auto;padding:24px;border-top:1px solid var(--border);font-size:0.7rem;color:var(--text2);text-align:center;">
+      HC Panel v3.0<br>Powered by Free Captcha API
+    </div>
+  </aside>
+
+  <!-- ═════════════ MAIN ═════════════ -->
+  <main class="main">
+    <div class="topbar">
+      <h2 id="pageTitle">لوحة التحكم</h2>
+      <div class="config-bar">
+        <input type="text" id="apiUrl" value="" placeholder="http://your-api:9000 (leave empty for same origin)">
+        <button onclick="connectAPI()">اتصال</button>
+        <span class="status-dot" id="statusDot">متصل</span>
+      </div>
+    </div>
+
+    <!-- Stats -->
+    <div class="stats-grid" id="statsGrid">
+      <div class="stat-card green">
+        <div class="stat-label">HCaptcha Pool</div>
+        <div class="stat-value" id="statHC">—</div>
+        <div class="stat-sub">Tokens جاهزة</div>
+      </div>
+      <div class="stat-card purple">
+        <div class="stat-label">Turnstile Pool</div>
+        <div class="stat-value" id="statTS">—</div>
+        <div class="stat-sub">Tokens جاهزة</div>
+      </div>
+      <div class="stat-card orange">
+        <div class="stat-label">Total Solved</div>
+        <div class="stat-value" id="statTotal">0</div>
+        <div class="stat-sub">في هذه الجلسة</div>
+      </div>
+      <div class="stat-card blue">
+        <div class="stat-label">Avg Speed</div>
+        <div class="stat-value" id="statSpeed">—</div>
+        <div class="stat-sub">ثانية / حل</div>
+      </div>
+    </div>
+
+    <!-- ═══════════ DASHBOARD ═══════════ -->
+    <section class="section active" id="sec-dashboard">
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <div class="card-title">نظرة عامة</div>
+            <div class="card-subtitle">حالة الخدمة والتجمعات</div>
+          </div>
+          <button class="btn btn-outline" onclick="refreshDashboard()">🔄 تحديث</button>
+        </div>
+        <div class="pool-grid">
+          <div>
+            <div style="display:flex;justify-content:space-between;margin-bottom:8px;">
+              <span style="font-weight:600;">🔐 hCaptcha Pool</span>
+              <span id="hcPoolLabel">—/50</span>
+            </div>
+            <div class="pool-meter"><div class="pool-fill" id="hcPoolBar" style="width:0%;background:var(--success);"></div></div>
+          </div>
+          <div>
+            <div style="display:flex;justify-content:space-between;margin-bottom:8px;">
+              <span style="font-weight:600;">🛡️ Turnstile Pool</span>
+              <span id="tsPoolLabel">—/50</span>
+            </div>
+            <div class="pool-meter"><div class="pool-fill" id="tsPoolBar" style="width:0%;background:var(--primary);"></div></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <div class="card-title">Quick Solve</div>
+            <div class="card-subtitle">حل سريع — اختر النوع وأدخل البيانات</div>
+          </div>
+        </div>
+        <div class="form-grid">
+          <div class="form-group">
+            <label>النوع</label>
+            <select id="quickType">
+              <option value="turnstile">Cloudflare Turnstile</option>
+              <option value="hcaptcha">hCaptcha</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Site Key</label>
+            <input type="text" id="quickKey" placeholder="مفتاح الموقع...">
+          </div>
+          <div class="form-group">
+            <label>Site URL</label>
+            <input type="text" id="quickUrl" placeholder="https://example.com/">
+          </div>
+          <div class="form-group">
+            <label>Timeout (ثانية)</label>
+            <input type="number" id="quickTimeout" value="45" min="10" max="120">
+          </div>
+          <div class="form-full">
+            <button class="btn btn-primary" onclick="quickSolve()" id="quickSolveBtn">
+              ⚡ حل الآن
+            </button>
+          </div>
+        </div>
+        <div class="token-box" id="quickTokenBox">
+          <button class="copy-btn" onclick="copyToken('quickTokenText')">📋 نسخ</button>
+          <span id="quickTokenText"></span>
+        </div>
+        <div id="quickElapsed" style="margin-top:8px;font-size:0.8rem;color:var(--text2);display:none;"></div>
+      </div>
+    </section>
+
+    <!-- ═══════════ TURNSTILE ═══════════ -->
+    <section class="section" id="sec-turnstile">
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <div class="card-title">🛡️ Cloudflare Turnstile Solver</div>
+            <div class="card-subtitle">يدعم أي موقع — يحقن الويدجت في DOM الصفحة الحقيقية</div>
+          </div>
+        </div>
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Site Key *</label>
+            <input type="text" id="tsKey" placeholder="0x4AAAAAAActoBfh_En8yr3T">
+          </div>
+          <div class="form-group">
+            <label>Site URL *</label>
+            <input type="text" id="tsUrl" placeholder="https://example.com/">
+          </div>
+          <div class="form-group">
+            <label>Timeout (ثانية)</label>
+            <input type="number" id="tsTimeout" value="45" min="10" max="120">
+          </div>
+          <div class="form-group">
+            <label>Proxy (اختياري)</label>
+            <input type="text" id="tsProxy" placeholder="http://user:pass@host:port">
+          </div>
+          <div class="form-full">
+            <button class="btn btn-primary" onclick="solveTurnstile()" id="tsSolveBtn">
+              🔓 حل Turnstile
+            </button>
+            <button class="btn btn-outline" onclick="getTurnstileFromPool()" id="tsPoolBtn" style="margin-right:10px;">
+              🏊 سحب من التجمع
+            </button>
+          </div>
+        </div>
+        <div class="token-box" id="tsTokenBox">
+          <button class="copy-btn" onclick="copyToken('tsTokenText')">📋 نسخ</button>
+          <span id="tsTokenText"></span>
+        </div>
+        <div id="tsElapsed" style="margin-top:8px;font-size:0.8rem;color:var(--text2);display:none;"></div>
+      </div>
+    </section>
+
+    <!-- ═══════════ HCAPTCHA ═══════════ -->
+    <section class="section" id="sec-hcaptcha">
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <div class="card-title">🔐 hCaptcha Solver</div>
+            <div class="card-subtitle">يدعم أي موقع — يحقن صفحة hCaptcha وهمية ويستخرج التوكن</div>
+          </div>
+        </div>
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Site Key *</label>
+            <input type="text" id="hcKey" placeholder="463b917e-e264-403f-ad34-34af0ee10294">
+          </div>
+          <div class="form-group">
+            <label>Site URL *</label>
+            <input type="text" id="hcUrl" placeholder="https://example.com/">
+          </div>
+          <div class="form-group">
+            <label>Proxy Server</label>
+            <input type="text" id="hcProxyServer" placeholder="http://host:port">
+          </div>
+          <div class="form-group">
+            <label>Proxy Auth</label>
+            <input type="text" id="hcProxyAuth" placeholder="username:password">
+          </div>
+          <div class="form-full">
+            <button class="btn btn-primary" onclick="solveHCaptcha()" id="hcSolveBtn">
+              🔓 حل hCaptcha
+            </button>
+            <button class="btn btn-outline" onclick="getHCaptchaFromPool()" id="hcPoolBtn" style="margin-right:10px;">
+              🏊 سحب من التجمع
+            </button>
+          </div>
+        </div>
+        <div class="token-box" id="hcTokenBox">
+          <button class="copy-btn" onclick="copyToken('hcTokenText')">📋 نسخ</button>
+          <span id="hcTokenText"></span>
+        </div>
+        <div id="hcElapsed" style="margin-top:8px;font-size:0.8rem;color:var(--text2);display:none;"></div>
+      </div>
+    </section>
+
+    <!-- ═══════════ POOL ═══════════ -->
+    <section class="section" id="sec-pool">
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <div class="card-title">🏊 Token Pool Status</div>
+            <div class="card-subtitle">حالة تجمعات التوكنات — hCaptcha + Turnstile</div>
+          </div>
+          <button class="btn btn-outline" onclick="refreshPool()">🔄 تحديث</button>
+        </div>
+        <div class="pool-grid">
+          <div>
+            <div style="font-weight:700;margin-bottom:12px;">🔐 hCaptcha Pool</div>
+            <div class="stat-value" id="poolHCVal" style="font-size:3rem;color:var(--success);">—</div>
+            <div style="color:var(--text2);">/ 50 target</div>
+            <div class="pool-meter" style="margin-top:16px;">
+              <div class="pool-fill" id="poolHCBar" style="width:0%;background:var(--success);"></div>
+            </div>
+          </div>
+          <div>
+            <div style="font-weight:700;margin-bottom:12px;">🛡️ Turnstile Pool</div>
+            <div class="stat-value" id="poolTSVal" style="font-size:3rem;color:var(--primary);">—</div>
+            <div style="color:var(--text2);">/ 50 target</div>
+            <div class="pool-meter" style="margin-top:16px;">
+              <div class="pool-fill" id="poolTSBar" style="width:0%;background:var(--primary);"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══════════ HISTORY ═══════════ -->
+    <section class="section" id="sec-history">
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <div class="card-title">📋 سجل العمليات</div>
+            <div class="card-subtitle" id="historyCount">0 عملية</div>
+          </div>
+          <button class="btn btn-outline" onclick="clearHistory()">🗑️ مسح السجل</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>النوع</th>
+                <th>التوكن</th>
+                <th>الوقت</th>
+                <th>الحالة</th>
+              </tr>
+            </thead>
+            <tbody id="historyTable">
+              <tr><td colspan="5" style="text-align:center;color:var(--text2);padding:40px;">لا توجد عمليات بعد</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══════════ DOCS ═══════════ -->
+    <section class="section" id="sec-docs">
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <div class="card-title">📚 API Documentation</div>
+            <div class="card-subtitle">طريقة استخدام الـ API من أي لغة برمجة</div>
+          </div>
+        </div>
+
+        <h3 style="margin:20px 0 10px;color:var(--primary);">POST /solve/turnstile</h3>
+        <div class="card" style="background:var(--surface2);">
+          <pre style="font-family:var(--mono);font-size:0.75rem;overflow-x:auto;color:var(--text);">
+curl -X POST <span id="docTsUrl">http://localhost:9000</span>/solve/turnstile \
+  -H "Content-Type: application/json" \
+  -d '{"sitekey":"0x4AAAAAAActoBfh_En8yr3T","siteurl":"https://example.com/","timeout":45}'
+
+<span style="color:var(--success);"># Response 200:</span>
+{"status":"success","token":"0.abc123...","elapsed":4.23}</pre>
+        </div>
+
+        <h3 style="margin:20px 0 10px;color:var(--primary);">POST /solve/hcaptcha</h3>
+        <div class="card" style="background:var(--surface2);">
+          <pre style="font-family:var(--mono);font-size:0.75rem;overflow-x:auto;color:var(--text);">
+curl -X POST <span id="docHcUrl">http://localhost:9000</span>/solve/hcaptcha \
+  -H "Content-Type: application/json" \
+  -d '{"sitekey":"463b917e-e264-403f-ad34-34af0ee10294","siteurl":"https://example.com/"}'
+
+<span style="color:var(--success);"># Response 200:</span>
+{"status":"success","token":"P0_abc123...","elapsed":5.67}</pre>
+        </div>
+
+        <h3 style="margin:20px 0 10px;color:var(--primary);">Python Example</h3>
+        <div class="card" style="background:var(--surface2);">
+          <pre style="font-family:var(--mono);font-size:0.75rem;overflow-x:auto;color:var(--text);">
+import requests
+API = "<span id="docPyUrl">http://localhost:9000</span>"
+
+# Turnstile
+r = requests.post(f"{API}/solve/turnstile", json={
+    "sitekey": "0x4AAAAAAActoBfh_En8yr3T",
+    "siteurl": "https://example.com/"
+})
+print(r.json()["token"])
+
+# hCaptcha
+r = requests.post(f"{API}/solve/hcaptcha", json={
+    "sitekey": "463b917e-e264-403f-ad34-34af0ee10294",
+    "siteurl": "https://example.com/"
+})
+print(r.json()["token"])</pre>
+        </div>
+
+        <h3 style="margin:20px 0 10px;color:var(--primary);">JavaScript Example</h3>
+        <div class="card" style="background:var(--surface2);">
+          <pre style="font-family:var(--mono);font-size:0.75rem;overflow-x:auto;color:var(--text);">
+const API = "<span id="docJsUrl">http://localhost:9000</span>";
+
+// Turnstile
+const ts = await fetch(`${API}/solve/turnstile`, {
+  method: 'POST',
+  headers: {'Content-Type': 'application/json'},
+  body: JSON.stringify({sitekey: '0x4...', siteurl: 'https://...'}),
+}).then(r => r.json());
+
+// hCaptcha
+const hc = await fetch(`${API}/solve/hcaptcha`, {
+  method: 'POST',
+  headers: {'Content-Type': 'application/json'},
+  body: JSON.stringify({sitekey: '463...', siteurl: 'https://...'}),
+}).then(r => r.json());</pre>
+        </div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<!-- Toast Container -->
+<div class="toast-container" id="toastContainer"></div>
+
+<!-- ═════════════ SCRIPTS ═════════════ -->
+<script>
+// ═════════════════════════════════════════════════════════════
+//  STATE
+// ═════════════════════════════════════════════════════════════
+let API_URL = localStorage.getItem('apiUrl') || '';  // empty = same origin (auto)
+let totalSolved = parseInt(localStorage.getItem('totalSolved') || '0');
+let solveTimes = JSON.parse(localStorage.getItem('solveTimes') || '[]');
+let history = JSON.parse(localStorage.getItem('history') || '[]');
+
+document.getElementById('apiUrl').value = API_URL;
+
+// ═════════════════════════════════════════════════════════════
+//  NAVIGATION
+// ═════════════════════════════════════════════════════════════
+document.querySelectorAll('.nav-item').forEach(item => {
+  item.addEventListener('click', () => {
+    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+    item.classList.add('active');
+    const section = item.dataset.section;
+    document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+    document.getElementById('sec-' + section).classList.add('active');
+    document.getElementById('pageTitle').textContent = item.textContent.trim().replace(/[^؀-ۿ\w\s]/g, '');
+    if (section === 'dashboard') refreshDashboard();
+    if (section === 'pool') refreshPool();
+    if (section === 'history') renderHistory();
+    if (section === 'docs') updateDocUrls();
+  });
+});
+
+// ═════════════════════════════════════════════════════════════
+//  API CONNECTION
+// ═════════════════════════════════════════════════════════════
+async function connectAPI() {
+  let url = document.getElementById('apiUrl').value.trim();
+  if (!url) { url = window.location.origin; document.getElementById('apiUrl').value = ''; }
+  API_URL = url.replace(/\/$/, '');
+  localStorage.setItem('apiUrl', API_URL);
+  await checkHealth();
+}
+
+async function checkHealth() {
+  const dot = document.getElementById('statusDot');
+  const base = API_URL || window.location.origin;
+  try {
+    const r = await fetch(base + '/health', { signal: AbortSignal.timeout(5000) });
+    const data = await r.json();
+    dot.textContent = data.status === 'ok' ? 'متصل' : 'خطأ';
+    dot.className = data.status === 'ok' ? 'status-dot' : 'status-dot offline';
+    updateDocUrls();
+    return data;
+  } catch (e) {
+    dot.textContent = 'غير متصل';
+    dot.className = 'status-dot offline';
+    return null;
+  }
+}
+
+function apiUrl() { return API_URL || window.location.origin; }
+
+function updateDocUrls() {
+  const base = API_URL || window.location.origin;
+  document.querySelectorAll('#docTsUrl, #docHcUrl, #docPyUrl, #docJsUrl').forEach(el => {
+    el.textContent = base;
+  });
+}
+
+// ═════════════════════════════════════════════════════════════
+//  DASHBOARD
+// ═════════════════════════════════════════════════════════════
+async function refreshDashboard() {
+  const health = await checkHealth();
+  if (!health) {
+    document.getElementById('statHC').textContent = '—';
+    document.getElementById('statTS').textContent = '—';
+    return;
+  }
+  // Get pool sizes
+  try {
+    const r = await fetch(apiUrl() + '/');
+    const data = await r.json();
+    const hcSize = data.pool?.hcaptcha_size || 0;
+
+    document.getElementById('statHC').textContent = hcSize;
+    document.getElementById('statTS').textContent = 'N/A (direct)';
+    document.getElementById('statTotal').textContent = totalSolved;
+    document.getElementById('statSpeed').textContent = getAvgSpeed();
+    document.getElementById('poolBadge').textContent = hcSize;
+    document.getElementById('hcPoolLabel').textContent = hcSize + '/50';
+    document.getElementById('hcPoolBar').style.width = Math.min(100, (hcSize / 50) * 100) + '%';
+    document.getElementById('tsPoolLabel').textContent = 'direct only';
+  } catch (e) {
+    console.error(e);
+  }
+}
+
+function getAvgSpeed() {
+  if (solveTimes.length === 0) return '—';
+  const avg = solveTimes.reduce((a, b) => a + b, 0) / solveTimes.length;
+  return avg.toFixed(1) + 's';
+}
+
+// ═════════════════════════════════════════════════════════════
+//  QUICK SOLVE
+// ═════════════════════════════════════════════════════════════
+async function quickSolve() {
+  const type = document.getElementById('quickType').value;
+  if (type === 'turnstile') {
+    document.getElementById('tsKey').value = document.getElementById('quickKey').value;
+    document.getElementById('tsUrl').value = document.getElementById('quickUrl').value;
+    document.getElementById('tsTimeout').value = document.getElementById('quickTimeout').value;
+    const token = await doSolveTurnstile(
+      document.getElementById('quickKey').value,
+      document.getElementById('quickUrl').value,
+      parseInt(document.getElementById('quickTimeout').value)
+    );
+    if (token) {
+      document.getElementById('quickTokenText').textContent = token;
+      document.getElementById('quickTokenBox').classList.add('show');
+    }
+  } else {
+    document.getElementById('hcKey').value = document.getElementById('quickKey').value;
+    document.getElementById('hcUrl').value = document.getElementById('quickUrl').value;
+    const token = await doSolveHCaptcha(
+      document.getElementById('quickKey').value,
+      document.getElementById('quickUrl').value
+    );
+    if (token) {
+      document.getElementById('quickTokenText').textContent = token;
+      document.getElementById('quickTokenBox').classList.add('show');
+    }
+  }
+}
+
+// ═════════════════════════════════════════════════════════════
+//  TURNSTILE SOLVE
+// ═════════════════════════════════════════════════════════════
+async function solveTurnstile() {
+  const key = document.getElementById('tsKey').value.trim();
+  const url = document.getElementById('tsUrl').value.trim();
+  const timeout = parseInt(document.getElementById('tsTimeout').value) || 45;
+  if (!key || !url) return toast('Site Key و Site URL مطلوبان', 'error');
+  await doSolveTurnstile(key, url, timeout);
+}
+
+async function doSolveTurnstile(key, url, timeout = 45) {
+  const btn = document.getElementById('tsSolveBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> جاري الحل...';
+  document.getElementById('tsTokenBox').classList.remove('show');
+  document.getElementById('tsElapsed').style.display = 'none';
+
+  const t0 = performance.now();
+  try {
+    const body = { sitekey: key, siteurl: url, timeout };
+    const proxyStr = document.getElementById('tsProxy').value.trim();
+    if (proxyStr) {
+      const [auth, hp] = proxyStr.split('@');
+      if (auth && hp) {
+        const [u, p] = auth.replace('http://', '').split(':');
+        const [h, port] = hp.split(':');
+        body.proxy = { server: `http://${h}:${port}`, username: u, password: p };
+      }
+    }
+
+    const r = await fetch(apiUrl() + '/solve/turnstile', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    const data = await r.json();
+    const elapsed = ((performance.now() - t0) / 1000).toFixed(2);
+
+    if (data.status === 'success') {
+      document.getElementById('tsTokenText').textContent = data.token;
+      document.getElementById('tsTokenBox').classList.add('show');
+      document.getElementById('tsElapsed').textContent = `✅ تم الحل في ${elapsed} ثانية`;
+      document.getElementById('tsElapsed').style.display = 'block';
+      addHistory('turnstile', data.token, elapsed, 'success');
+      totalSolved++;
+      solveTimes.push(parseFloat(elapsed));
+      saveState();
+      toast('✅ تم حل Turnstile بنجاح', 'success');
+      return data.token;
+    } else {
+      document.getElementById('tsElapsed').textContent = `❌ ${data.detail}`;
+      document.getElementById('tsElapsed').style.display = 'block';
+      addHistory('turnstile', '—', elapsed, 'failed');
+      toast('❌ فشل: ' + data.detail, 'error');
+      return null;
+    }
+  } catch (e) {
+    const elapsed = ((performance.now() - t0) / 1000).toFixed(2);
+    document.getElementById('tsElapsed').textContent = `❌ ${e.message}`;
+    document.getElementById('tsElapsed').style.display = 'block';
+    addHistory('turnstile', '—', elapsed, 'error');
+    toast('❌ خطأ: ' + e.message, 'error');
+    return null;
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '🔓 حل Turnstile';
+    updateStats();
+  }
+}
+
+async function getTurnstileFromPool() {
+  const btn = document.getElementById('tsPoolBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> جاري السحب...';
+  try {
+    const r = await fetch(apiUrl() + '/get-turnstile-token');
+    const data = await r.json();
+    if (data.status === 'success') {
+      document.getElementById('tsTokenText').textContent = data.token;
+      document.getElementById('tsTokenBox').classList.add('show');
+      document.getElementById('tsElapsed').textContent = '⚡ تم السحب من التجمع (فوري)';
+      document.getElementById('tsElapsed').style.display = 'block';
+      addHistory('turnstile-pool', data.token, '0', 'success');
+      totalSolved++;
+      saveState();
+      toast('⚡ تم سحب توكن Turnstile من التجمع', 'success');
+    } else {
+      toast('❌ ' + data.detail, 'error');
+    }
+  } catch (e) {
+    toast('❌ خطأ: ' + e.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '🏊 سحب من التجمع';
+    updateStats();
+  }
+}
+
+// ═════════════════════════════════════════════════════════════
+//  HCAPTCHA SOLVE
+// ═════════════════════════════════════════════════════════════
+async function solveHCaptcha() {
+  const key = document.getElementById('hcKey').value.trim();
+  const url = document.getElementById('hcUrl').value.trim();
+  if (!key || !url) return toast('Site Key و Site URL مطلوبان', 'error');
+  await doSolveHCaptcha(key, url);
+}
+
+async function doSolveHCaptcha(key, url) {
+  const btn = document.getElementById('hcSolveBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> جاري الحل...';
+  document.getElementById('hcTokenBox').classList.remove('show');
+  document.getElementById('hcElapsed').style.display = 'none';
+
+  const t0 = performance.now();
+  try {
+    const body = { sitekey: key, siteurl: url };
+    const server = document.getElementById('hcProxyServer').value.trim();
+    const auth = document.getElementById('hcProxyAuth').value.trim();
+    if (server && auth) {
+      const [u, p] = auth.split(':');
+      body.proxy = { server, username: u, password: p };
+    }
+
+    const r = await fetch(apiUrl() + '/solve/hcaptcha', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    const data = await r.json();
+    const elapsed = ((performance.now() - t0) / 1000).toFixed(2);
+
+    if (data.status === 'success') {
+      document.getElementById('hcTokenText').textContent = data.token;
+      document.getElementById('hcTokenBox').classList.add('show');
+      document.getElementById('hcElapsed').textContent = `✅ تم الحل في ${elapsed} ثانية`;
+      document.getElementById('hcElapsed').style.display = 'block';
+      addHistory('hcaptcha', data.token, elapsed, 'success');
+      totalSolved++;
+      solveTimes.push(parseFloat(elapsed));
+      saveState();
+      toast('✅ تم حل hCaptcha بنجاح', 'success');
+      return data.token;
+    } else {
+      document.getElementById('hcElapsed').textContent = `❌ ${data.detail}`;
+      document.getElementById('hcElapsed').style.display = 'block';
+      addHistory('hcaptcha', '—', elapsed, 'failed');
+      toast('❌ فشل: ' + data.detail, 'error');
+      return null;
+    }
+  } catch (e) {
+    const elapsed = ((performance.now() - t0) / 1000).toFixed(2);
+    document.getElementById('hcElapsed').textContent = `❌ ${e.message}`;
+    document.getElementById('hcElapsed').style.display = 'block';
+    addHistory('hcaptcha', '—', elapsed, 'error');
+    toast('❌ خطأ: ' + e.message, 'error');
+    return null;
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '🔓 حل hCaptcha';
+    updateStats();
+  }
+}
+
+async function getHCaptchaFromPool() {
+  const btn = document.getElementById('hcPoolBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> جاري السحب...';
+  try {
+    const r = await fetch(apiUrl() + '/get-hcaptcha-token');
+    const data = await r.json();
+    if (data.status === 'success') {
+      document.getElementById('hcTokenText').textContent = data.token;
+      document.getElementById('hcTokenBox').classList.add('show');
+      document.getElementById('hcElapsed').textContent = '⚡ تم السحب من التجمع (فوري)';
+      document.getElementById('hcElapsed').style.display = 'block';
+      addHistory('hcaptcha-pool', data.token, '0', 'success');
+      totalSolved++;
+      saveState();
+      toast('⚡ تم سحب توكن hCaptcha من التجمع', 'success');
+    } else {
+      toast('❌ ' + data.detail, 'error');
+    }
+  } catch (e) {
+    toast('❌ خطأ: ' + e.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '🏊 سحب من التجمع';
+    updateStats();
+  }
+}
+
+// ═════════════════════════════════════════════════════════════
+//  POOL
+// ═════════════════════════════════════════════════════════════
+async function refreshPool() {
+  try {
+    const health = await fetch(apiUrl() + '/health').then(r => r.json());
+    const info = await fetch(apiUrl() + '/').then(r => r.json());
+    const hcSize = info.pool?.hcaptcha_size || 0;
+
+    document.getElementById('poolHCVal').textContent = hcSize;
+    document.getElementById('poolHCBar').style.width = Math.min(100, (hcSize / 50) * 100) + '%';
+    document.getElementById('poolTSVal').textContent = 'N/A';
+    document.getElementById('poolTSBar').style.width = '0%';
+    document.getElementById('statHC').textContent = hcSize;
+    document.getElementById('poolBadge').textContent = hcSize;
+  } catch (e) {
+    toast('❌ لا يمكن الاتصال بالخادم', 'error');
+  }
+}
+
+// ═════════════════════════════════════════════════════════════
+//  HISTORY
+// ═════════════════════════════════════════════════════════════
+function addHistory(type, token, elapsed, status) {
+  history.unshift({
+    type,
+    token: token === '—' ? '—' : token.slice(0, 40) + '...',
+    elapsed,
+    status,
+    time: new Date().toLocaleTimeString('ar-SA'),
+  });
+  if (history.length > 50) history = history.slice(0, 50);
+  saveState();
+}
+
+function renderHistory() {
+  const tbody = document.getElementById('historyTable');
+  document.getElementById('historyCount').textContent = history.length + ' عملية';
+  if (history.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--text2);padding:40px;">لا توجد عمليات بعد</td></tr>';
+    return;
+  }
+  tbody.innerHTML = history.map((h, i) => `
+    <tr>
+      <td>${i + 1}</td>
+      <td><span class="badge ${h.type.includes('turnstile') ? 'badge-purple' : 'badge-success'}">${h.type}</span></td>
+      <td class="token-cell">${h.token}</td>
+      <td>${h.elapsed}s</td>
+      <td><span style="color:${h.status === 'success' ? 'var(--success)' : 'var(--danger)'}">${h.status}</span></td>
+    </tr>
+  `).join('');
+}
+
+function clearHistory() {
+  history = [];
+  saveState();
+  renderHistory();
+  toast('🗑️ تم مسح السجل', 'success');
+}
+
+// ═════════════════════════════════════════════════════════════
+//  UTILS
+// ═════════════════════════════════════════════════════════════
+function copyToken(id) {
+  const text = document.getElementById(id).textContent;
+  navigator.clipboard.writeText(text).then(() => {
+    toast('📋 تم النسخ!', 'success');
+  });
+}
+
+function toast(msg, type) {
+  const container = document.getElementById('toastContainer');
+  const el = document.createElement('div');
+  el.className = `toast toast-${type}`;
+  el.textContent = msg;
+  container.appendChild(el);
+  setTimeout(() => { el.remove(); }, 3000);
+}
+
+function updateStats() {
+  document.getElementById('statTotal').textContent = totalSolved;
+  document.getElementById('statSpeed').textContent = getAvgSpeed();
+}
+
+function saveState() {
+  localStorage.setItem('totalSolved', totalSolved);
+  localStorage.setItem('solveTimes', JSON.stringify(solveTimes.slice(-50)));
+  localStorage.setItem('history', JSON.stringify(history));
+}
+
+// ═════════════════════════════════════════════════════════════
+//  INIT
+// ═════════════════════════════════════════════════════════════
+checkHealth().then(() => refreshDashboard());
+renderHistory();
+
+// Auto-refresh dashboard every 30s
+setInterval(() => {
+  if (document.getElementById('sec-dashboard').classList.contains('active')) {
+    refreshDashboard();
+  }
+  if (document.getElementById('sec-pool').classList.contains('active')) {
+    refreshPool();
+  }
+}, 30000);
+</script>
+
+</body>
+</html>

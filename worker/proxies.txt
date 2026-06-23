@@ -1,0 +1,22 @@
+# Proxies — format: username:password@host:port
+# Add your own proxies below. Lines starting with # are ignored.
+Arsen1k:Speed123@66.33.22.238:29967
+Arsen1k:Speed123@66.33.22.227:48958
+Arsen1k:Speed123@66.33.22.227:26425
+Arsen1k:Speed123@66.33.22.227:45501
+Arsen1k:Speed123@66.33.22.235:10583
+Arsen1k:Speed123@66.33.22.253:52070
+Arsen1k:Speed123@66.33.22.227:10980
+Arsen1k:Speed123@66.33.22.244:17155
+Arsen1k:Speed123@66.33.22.231:28071
+Arsen1k:Speed123@66.33.22.227:15815
+Arsen1k:Speed123@66.33.22.235:13970
+Arsen1k:Speed123@66.33.22.228:26317
+Arsen1k:Speed123@66.33.22.227:48021
+Arsen1k:Speed123@66.33.22.244:16633
+Arsen1k:Speed123@66.33.22.227:14764
+Arsen1k:Speed123@66.33.22.243:54734
+Arsen1k:Speed123@66.33.22.228:38314
+Arsen1k:Speed123@66.33.22.227:45582
+Arsen1k:Speed123@66.33.22.227:34867
+Arsen1k:Speed123@66.33.22.227:44027
