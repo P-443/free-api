@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>HC Panel — Captcha Management Dashboard</title>
-<!-- Lucide Icons -->
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0%25' y1='0%25' x2='100%25' y2='100%25'%3E%3Cstop offset='0%25' style='stop-color:%237c6ff7'/%3E%3Cstop offset='100%25' style='stop-color:%2310d4a0'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cpolygon points='16,1 29,8 29,24 16,31 3,24 3,8' fill='none' stroke='url(%23g)' stroke-width='2.5' rx='2'/%3E%3Cpath d='M16 10v7l4.5 2.5' fill='none' stroke='url(%23g)' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M12 10h8' fill='none' stroke='url(%23g)' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E">
 <script src="https://unpkg.com/lucide@latest"></script>
 <style>
 /* ═════════════════════════════════════════════════════════════ */
@@ -277,13 +277,18 @@ tr:hover td { background: rgba(255,255,255,0.015); }
 <header class="header">
   <div class="header-left">
     <a class="header-logo" onclick="goHome()" title="HC Panel — Home">
-      <!-- Custom logo: 2 interlocking hexagons -->
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M12 2L3 7v10l9 5 9-5V7L12 2z"/>
-        <path d="M12 22V12"/>
-        <path d="M3 7l9 5 9-5"/>
+      <svg width="24" height="24" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="logoGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" style="stop-color:#7c6ff7"/>
+            <stop offset="100%" style="stop-color:#10d4a0"/>
+          </linearGradient>
+        </defs>
+        <polygon points="16,1 29,8 29,24 16,31 3,24 3,8" fill="none" stroke="url(#logoGrad)" stroke-width="2.2" stroke-linejoin="round"/>
+        <path d="M16 10v7l4.5 2.5" fill="none" stroke="url(#logoGrad)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M12 10h8" fill="none" stroke="url(#logoGrad)" stroke-width="1.8" stroke-linecap="round"/>
       </svg>
-      HC Panel
+      <span>HC Panel</span>
     </a>
     <div class="header-links">
       <button class="header-btn docs-btn" onclick="window.open(apiUrl() + '/docs', '_blank')">
@@ -325,9 +330,6 @@ tr:hover td { background: rgba(255,255,255,0.015); }
       </div>
       <div class="nav-item" data-section="history">
         <i data-lucide="clock-arrow-up"></i> History
-      </div>
-      <div class="nav-item" data-section="docs">
-        <i data-lucide="book-open-text"></i> API Docs
       </div>
     </nav>
     <div class="sidebar-footer">
