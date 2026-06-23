@@ -4,28 +4,31 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>HC Panel — Captcha Management Dashboard</title>
+<!-- Lucide Icons -->
+<script src="https://unpkg.com/lucide@latest"></script>
 <style>
 /* ═════════════════════════════════════════════════════════════ */
-/*  DESIGN SYSTEM — Dark Glassmorphism Theme (LTR)             */
+/*  DESIGN SYSTEM — Dark Professional Theme (LTR)              */
 /* ═════════════════════════════════════════════════════════════ */
 :root {
-  --bg: #0a0a0f;
-  --surface: #13131a;
-  --surface2: #1a1a25;
-  --border: #252535;
-  --primary: #6c5ce7;
-  --primary-glow: rgba(108, 92, 231, 0.3);
-  --success: #00d2a0;
-  --success-glow: rgba(0, 210, 160, 0.3);
-  --warning: #f9a825;
-  --danger: #ff4757;
-  --text: #e8e8f0;
-  --text2: #9090a0;
-  --radius: 14px;
-  --radius-sm: 8px;
-  --font: 'Segoe UI', system-ui, -apple-system, sans-serif;
-  --mono: 'Cascadia Code', 'Fira Code', 'JetBrains Mono', monospace;
-  --transition: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  --bg: #09090d;
+  --surface: #111118;
+  --surface2: #181820;
+  --border: #252530;
+  --primary: #7c6ff7;
+  --primary-hover: #9588ff;
+  --primary-glow: rgba(124, 111, 247, 0.25);
+  --success: #10d4a0;
+  --success-glow: rgba(16, 212, 160, 0.25);
+  --warning: #f5a623;
+  --danger: #f4475b;
+  --text: #e4e4ec;
+  --text2: #8888a0;
+  --radius: 12px;
+  --radius-sm: 7px;
+  --font: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+  --transition: 0.18s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -36,16 +39,16 @@ body {
   color: var(--text);
   min-height: 100vh;
   background-image:
-    radial-gradient(ellipse at 20% 0%, rgba(108, 92, 231, 0.08) 0%, transparent 50%),
-    radial-gradient(ellipse at 80% 100%, rgba(0, 210, 160, 0.05) 0%, transparent 50%);
+    radial-gradient(ellipse at 15% 0%, rgba(124, 111, 247, 0.06) 0%, transparent 50%),
+    radial-gradient(ellipse at 85% 100%, rgba(16, 212, 160, 0.04) 0%, transparent 50%);
 }
 
-/* ── Header / Navbar ───────────────────────────────────────── */
+/* ── Header ────────────────────────────────────────────────── */
 .header {
   background: var(--surface);
   border-bottom: 1px solid var(--border);
-  padding: 0 32px;
-  height: 60px;
+  padding: 0 28px;
+  height: 56px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -53,365 +56,204 @@ body {
   top: 0;
   z-index: 200;
 }
-.header-left {
-  display: flex;
-  align-items: center;
-  gap: 24px;
-}
+.header-left { display: flex; align-items: center; gap: 24px; }
 .header-logo {
-  font-size: 1.3rem;
-  font-weight: 800;
-  background: linear-gradient(135deg, var(--primary), #a78bfa);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  letter-spacing: -0.5px;
-  cursor: pointer;
-  text-decoration: none;
-  user-select: none;
+  display: flex; align-items: center; gap: 9px;
+  font-size: 1.15rem; font-weight: 800; letter-spacing: -0.3px;
+  background: linear-gradient(135deg, var(--primary), #b4a6ff);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  cursor: pointer; text-decoration: none; user-select: none;
 }
-.header-logo:hover { opacity: 0.85; }
-.header-links {
-  display: flex;
-  gap: 6px;
-}
+.header-logo svg { color: var(--primary); }
+.header-links { display: flex; gap: 5px; }
 .header-btn {
-  padding: 6px 16px;
-  border-radius: 6px;
-  font-size: 0.78rem;
-  font-weight: 600;
-  cursor: pointer;
-  border: 1px solid var(--border);
-  background: var(--surface2);
-  color: var(--text2);
-  transition: var(--transition);
-  font-family: var(--font);
-  text-decoration: none;
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
+  padding: 6px 14px; border-radius: 6px; font-size: 0.76rem; font-weight: 600;
+  cursor: pointer; border: 1px solid var(--border); background: var(--surface2);
+  color: var(--text2); transition: var(--transition); font-family: var(--font);
+  text-decoration: none; display: inline-flex; align-items: center; gap: 6px;
 }
-.header-btn:hover { color: var(--text); border-color: var(--primary); background: rgba(108,92,231,0.08); }
-.header-btn.docs-btn { color: var(--primary); }
-.header-btn.health-btn { color: var(--success); }
-.header-right {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
+.header-btn svg { width: 14px; height: 14px; }
+.header-btn:hover { color: var(--text); border-color: var(--primary); background: rgba(124,111,247,0.06); }
+.header-btn.docs-btn:hover { border-color: var(--primary); color: var(--primary); }
+.header-btn.health-btn:hover { border-color: var(--success); color: var(--success); }
+.header-right { display: flex; align-items: center; gap: 10px; }
 .status-dot {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 0.8rem;
-  padding: 6px 14px;
-  border-radius: 30px;
-  background: var(--surface2);
-  border: 1px solid var(--border);
+  display: inline-flex; align-items: center; gap: 7px; font-size: 0.78rem;
+  padding: 5px 13px; border-radius: 30px; background: var(--surface2); border: 1px solid var(--border);
 }
 .status-dot::before {
-  content: '';
-  width: 7px; height: 7px;
-  border-radius: 50%;
-  background: var(--success);
-  box-shadow: 0 0 8px var(--success-glow);
-  animation: pulse 2s infinite;
+  content: ''; width: 7px; height: 7px; border-radius: 50%;
+  background: var(--success); box-shadow: 0 0 7px var(--success-glow); animation: pulse 2.5s infinite;
 }
 .status-dot.offline::before { background: var(--danger); animation: none; }
-@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.35} }
 
 .api-input {
-  background: var(--surface2);
-  border: 1px solid var(--border);
-  color: var(--text);
-  padding: 6px 12px;
-  border-radius: 6px;
-  font-family: var(--mono);
-  font-size: 0.75rem;
-  width: 240px;
-  outline: none;
-  transition: var(--transition);
+  background: var(--surface2); border: 1px solid var(--border); color: var(--text);
+  padding: 6px 11px; border-radius: 6px; font-family: var(--mono); font-size: 0.73rem;
+  width: 230px; outline: none; transition: var(--transition);
 }
 .api-input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-glow); }
 .connect-btn {
-  background: var(--primary);
-  border: none;
-  color: #fff;
-  padding: 6px 14px;
-  border-radius: 6px;
-  cursor: pointer;
-  font-weight: 600;
-  font-size: 0.75rem;
-  transition: var(--transition);
-  font-family: var(--font);
+  background: var(--primary); border: none; color: #fff; padding: 6px 14px;
+  border-radius: 6px; cursor: pointer; font-weight: 700; font-size: 0.74rem;
+  transition: var(--transition); font-family: var(--font); display: flex; align-items: center; gap: 5px;
 }
-.connect-btn:hover { box-shadow: 0 0 20px var(--primary-glow); }
+.connect-btn:hover { background: var(--primary-hover); box-shadow: 0 0 18px var(--primary-glow); }
 
 /* ── Layout ────────────────────────────────────────────────── */
-.app { display: flex; min-height: calc(100vh - 60px); }
+.app { display: flex; min-height: calc(100vh - 56px); }
 
-/* Sidebar — LEFT side for LTR */
+/* Sidebar */
 .sidebar {
-  width: 250px;
-  background: var(--surface);
-  border-right: 1px solid var(--border);
-  padding: 20px 0;
-  display: flex;
-  flex-direction: column;
-  position: sticky;
-  top: 60px;
-  height: calc(100vh - 60px);
-  z-index: 100;
-  flex-shrink: 0;
+  width: 240px; background: var(--surface); border-right: 1px solid var(--border);
+  padding: 16px 0; display: flex; flex-direction: column;
+  position: sticky; top: 56px; height: calc(100vh - 56px); z-index: 100; flex-shrink: 0;
 }
 .sidebar-section {
-  padding: 8px 20px 4px;
-  font-size: 0.65rem;
-  color: var(--text2);
-  text-transform: uppercase;
-  letter-spacing: 2px;
-  margin-top: 8px;
+  padding: 6px 18px 4px; font-size: 0.62rem; color: var(--text2);
+  text-transform: uppercase; letter-spacing: 2px; margin-top: 6px;
 }
 .nav-item {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 20px;
-  color: var(--text2);
-  cursor: pointer;
-  transition: var(--transition);
-  border-left: 3px solid transparent;
-  font-size: 0.85rem;
-  margin: 1px 0;
+  display: flex; align-items: center; gap: 10px; padding: 9px 18px;
+  color: var(--text2); cursor: pointer; transition: var(--transition);
+  border-left: 3px solid transparent; font-size: 0.82rem; margin: 1px 0;
 }
-.nav-item:hover { color: var(--text); background: rgba(255,255,255,0.03); }
+.nav-item svg { width: 17px; height: 17px; flex-shrink: 0; }
+.nav-item:hover { color: var(--text); background: rgba(255,255,255,0.025); }
 .nav-item.active {
-  color: var(--primary);
-  background: rgba(108, 92, 231, 0.08);
+  color: var(--primary); background: rgba(124, 111, 247, 0.07);
   border-left-color: var(--primary);
 }
-.nav-item .icon { font-size: 1.1rem; width: 22px; text-align: center; }
+.nav-item.active svg { color: var(--primary); }
 .nav-badge {
-  margin-left: auto;
-  background: var(--success);
-  color: #000;
-  font-size: 0.6rem;
-  font-weight: 700;
-  padding: 2px 7px;
-  border-radius: 20px;
+  margin-left: auto; background: var(--success); color: #000;
+  font-size: 0.6rem; font-weight: 700; padding: 2px 7px; border-radius: 20px;
+  font-family: var(--mono);
 }
 .sidebar-footer {
-  margin-top: auto;
-  padding: 18px 20px;
-  border-top: 1px solid var(--border);
-  font-size: 0.65rem;
-  color: var(--text2);
-  text-align: center;
+  margin-top: auto; padding: 16px 18px; border-top: 1px solid var(--border);
+  font-size: 0.63rem; color: var(--text2); text-align: center;
 }
 
-/* Main content */
-.main {
-  flex: 1;
-  padding: 28px 36px;
-  min-width: 0;
-}
+/* Main */
+.main { flex: 1; padding: 24px 32px; min-width: 0; }
 
-/* ── Stats Grid ────────────────────────────────────────────── */
+/* ── Stats ─────────────────────────────────────────────────── */
 .stats-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 14px;
-  margin-bottom: 24px;
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 22px;
 }
 .stat-card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 18px 22px;
-  position: relative;
-  overflow: hidden;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 16px 20px; position: relative; overflow: hidden;
 }
 .stat-card::before {
-  content: '';
-  position: absolute;
-  top: 0; left: 0; right: 0;
-  height: 2px;
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
 }
-.stat-card.green::before  { background: var(--success); box-shadow: 0 0 12px var(--success-glow); }
-.stat-card.purple::before { background: var(--primary); box-shadow: 0 0 12px var(--primary-glow); }
+.stat-card.green::before  { background: var(--success); box-shadow: 0 0 10px var(--success-glow); }
+.stat-card.purple::before { background: var(--primary); box-shadow: 0 0 10px var(--primary-glow); }
 .stat-card.orange::before { background: var(--warning); }
-.stat-card.blue::before   { background: #3498db; }
-.stat-label { font-size: 0.7rem; color: var(--text2); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px; }
-.stat-value { font-size: 1.9rem; font-weight: 800; font-family: var(--mono); }
-.stat-sub { font-size: 0.65rem; color: var(--text2); margin-top: 3px; }
+.stat-card.blue::before   { background: #4dabf7; }
+.stat-label { font-size: 0.68rem; color: var(--text2); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 3px; }
+.stat-value { font-size: 1.8rem; font-weight: 800; font-family: var(--mono); }
+.stat-sub { font-size: 0.63rem; color: var(--text2); margin-top: 2px; }
 
 /* ── Sections ──────────────────────────────────────────────── */
 .section { display: none; }
-.section.active { display: block; }
+.section.active { display: block; animation: fadeIn 0.2s ease; }
+@keyframes fadeIn { from{opacity:0;transform:translateY(4px)} to{opacity:1;transform:translateY(0)} }
 
 .card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 24px;
-  margin-bottom: 18px;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 22px; margin-bottom: 16px;
 }
-.card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 18px;
-}
-.card-title { font-size: 1.05rem; font-weight: 700; }
-.card-subtitle { font-size: 0.75rem; color: var(--text2); margin-top: 2px; }
+.card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+.card-title { font-size: 1rem; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+.card-title svg { width: 18px; height: 18px; }
+.card-subtitle { font-size: 0.73rem; color: var(--text2); margin-top: 2px; }
 
 /* ── Forms ─────────────────────────────────────────────────── */
-.form-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 14px;
-}
-.form-group { display: flex; flex-direction: column; gap: 5px; }
-.form-group label { font-size: 0.75rem; color: var(--text2); font-weight: 600; }
+.form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.form-group { display: flex; flex-direction: column; gap: 4px; }
+.form-group label { font-size: 0.73rem; color: var(--text2); font-weight: 600; }
 .form-group input, .form-group textarea, .form-group select {
-  background: var(--surface2);
-  border: 1px solid var(--border);
-  color: var(--text);
-  padding: 9px 12px;
-  border-radius: var(--radius-sm);
-  font-family: var(--font);
-  font-size: 0.82rem;
-  outline: none;
-  transition: var(--transition);
-  resize: vertical;
+  background: var(--surface2); border: 1px solid var(--border); color: var(--text);
+  padding: 8px 12px; border-radius: var(--radius-sm); font-family: var(--font);
+  font-size: 0.8rem; outline: none; transition: var(--transition); resize: vertical;
 }
 .form-group input:focus, .form-group textarea:focus, .form-group select:focus {
-  border-color: var(--primary);
-  box-shadow: 0 0 0 3px var(--primary-glow);
+  border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-glow);
 }
-.form-group textarea { min-height: 60px; font-family: var(--mono); font-size: 0.72rem; }
+.form-group textarea { min-height: 56px; font-family: var(--mono); font-size: 0.7rem; }
 .form-full { grid-column: 1 / -1; }
 
 .btn {
-  padding: 10px 24px;
-  border: none;
-  border-radius: var(--radius-sm);
-  font-weight: 700;
-  font-size: 0.85rem;
-  cursor: pointer;
-  transition: var(--transition);
-  font-family: var(--font);
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  white-space: nowrap;
+  padding: 9px 22px; border: none; border-radius: var(--radius-sm); font-weight: 700;
+  font-size: 0.82rem; cursor: pointer; transition: var(--transition); font-family: var(--font);
+  display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;
 }
+.btn svg { width: 16px; height: 16px; }
 .btn-primary { background: var(--primary); color: #fff; }
-.btn-primary:hover { box-shadow: 0 0 24px var(--primary-glow); transform: translateY(-2px); }
+.btn-primary:hover { background: var(--primary-hover); box-shadow: 0 0 22px var(--primary-glow); transform: translateY(-1px); }
 .btn-success { background: var(--success); color: #000; }
-.btn-success:hover { box-shadow: 0 0 24px var(--success-glow); transform: translateY(-2px); }
+.btn-success:hover { box-shadow: 0 0 22px var(--success-glow); transform: translateY(-1px); }
 .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text); }
-.btn-outline:hover { border-color: var(--primary); background: rgba(108,92,231,0.05); }
-.btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none !important; }
+.btn-outline:hover { border-color: var(--primary); background: rgba(124,111,247,0.05); }
+.btn:disabled { opacity: 0.45; cursor: not-allowed; transform: none !important; box-shadow: none !important; }
 
-/* ── Token Display ─────────────────────────────────────────── */
+/* ── Token ─────────────────────────────────────────────────── */
 .token-box {
-  background: var(--surface2);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  padding: 14px 40px 14px 14px;
-  font-family: var(--mono);
-  font-size: 0.72rem;
-  word-break: break-all;
-  color: var(--success);
-  position: relative;
-  margin-top: 14px;
-  display: none;
+  background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius-sm);
+  padding: 13px 42px 13px 13px; font-family: var(--mono); font-size: 0.7rem;
+  word-break: break-all; color: var(--success); position: relative; margin-top: 12px; display: none;
 }
-.token-box.show { display: block; animation: fadeIn 0.3s ease; }
-@keyframes fadeIn { from{opacity:0;transform:translateY(-6px)} to{opacity:1;transform:translateY(0)} }
+.token-box.show { display: block; animation: fadeIn 0.25s ease; }
 .copy-btn {
-  position: absolute;
-  top: 6px;
-  right: 6px;
-  background: var(--primary);
-  border: none;
-  color: #fff;
-  padding: 3px 10px;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 0.65rem;
-  font-weight: 600;
-  font-family: var(--font);
+  position: absolute; top: 5px; right: 5px; background: var(--primary); border: none;
+  color: #fff; padding: 3px 10px; border-radius: 4px; cursor: pointer;
+  font-size: 0.63rem; font-weight: 600; font-family: var(--font); display: flex; align-items: center; gap: 3px;
 }
-.copy-btn:hover { background: #7c6ff7; }
+.copy-btn:hover { background: var(--primary-hover); }
+.copy-btn svg { width: 11px; height: 11px; }
 
 /* ── Table ─────────────────────────────────────────────────── */
 .table-wrap { overflow-x: auto; }
 table { width: 100%; border-collapse: collapse; }
-th, td { padding: 10px 14px; text-align: left; font-size: 0.82rem; }
-th { color: var(--text2); font-weight: 600; border-bottom: 2px solid var(--border); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 1px; }
+th, td { padding: 9px 14px; text-align: left; font-size: 0.8rem; }
+th { color: var(--text2); font-weight: 600; border-bottom: 2px solid var(--border); font-size: 0.68rem; text-transform: uppercase; letter-spacing: 1px; }
 td { border-bottom: 1px solid var(--border); }
-tr:hover td { background: rgba(255,255,255,0.02); }
-.token-cell { font-family: var(--mono); font-size: 0.68rem; max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+tr:hover td { background: rgba(255,255,255,0.015); }
+.token-cell { font-family: var(--mono); font-size: 0.66rem; max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .badge {
-  display: inline-block;
-  padding: 2px 9px;
-  border-radius: 20px;
-  font-size: 0.65rem;
-  font-weight: 700;
+  display: inline-block; padding: 2px 9px; border-radius: 20px; font-size: 0.63rem; font-weight: 700;
 }
-.badge-success { background: rgba(0,210,160,0.15); color: var(--success); }
-.badge-purple { background: rgba(108,92,231,0.15); color: var(--primary); }
+.badge-success { background: rgba(16,212,160,0.13); color: var(--success); }
+.badge-purple { background: rgba(124,111,247,0.13); color: var(--primary); }
 
-/* ── Pool Display ──────────────────────────────────────────── */
-.pool-meter {
-  width: 100%;
-  height: 8px;
-  background: var(--surface2);
-  border-radius: 10px;
-  margin: 10px 0;
-  overflow: hidden;
-}
-.pool-fill {
-  height: 100%;
-  border-radius: 10px;
-  transition: width 0.6s ease;
-}
-.pool-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; }
+/* ── Pool ──────────────────────────────────────────────────── */
+.pool-meter { width: 100%; height: 8px; background: var(--surface2); border-radius: 10px; margin: 10px 0; overflow: hidden; }
+.pool-fill { height: 100%; border-radius: 10px; transition: width 0.6s ease; }
+.pool-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 18px; }
 
-/* ── Loading Spinner ───────────────────────────────────────── */
+/* ── Spinner ───────────────────────────────────────────────── */
 .spinner {
-  display: inline-block;
-  width: 14px; height: 14px;
-  border: 2px solid transparent;
-  border-top-color: #fff;
-  border-radius: 50%;
-  animation: spin 0.6s linear infinite;
+  display: inline-block; width: 14px; height: 14px; border: 2px solid transparent;
+  border-top-color: #fff; border-radius: 50%; animation: spin 0.6s linear infinite;
 }
 @keyframes spin { to{transform:rotate(360deg)} }
 
 /* ── Toast ─────────────────────────────────────────────────── */
 .toast-container {
-  position: fixed;
-  top: 72px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 9999;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
+  position: fixed; top: 68px; left: 50%; transform: translateX(-50%);
+  z-index: 9999; display: flex; flex-direction: column; gap: 6px;
 }
 .toast {
-  padding: 10px 22px;
-  border-radius: var(--radius-sm);
-  font-weight: 600;
-  font-size: 0.8rem;
-  animation: slideIn 0.3s ease;
-  box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+  padding: 10px 22px; border-radius: var(--radius-sm); font-weight: 600;
+  font-size: 0.78rem; animation: slideIn 0.3s ease; box-shadow: 0 8px 32px rgba(0,0,0,0.5);
 }
 .toast-success { background: var(--success); color: #000; }
 .toast-error { background: var(--danger); color: #fff; }
-@keyframes slideIn { from{opacity:0;transform:translateY(-16px)} to{opacity:1;transform:translateY(0)} }
+@keyframes slideIn { from{opacity:0;transform:translateY(-14px)} to{opacity:1;transform:translateY(0)} }
 
 /* ── Responsive ────────────────────────────────────────────── */
 @media (max-width: 1024px) {
@@ -421,56 +263,71 @@ tr:hover td { background: rgba(255,255,255,0.02); }
 }
 @media (max-width: 768px) {
   .sidebar { display: none; }
-  .header { padding: 0 16px; }
+  .header { padding: 0 14px; }
   .header-links { display: none; }
-  .api-input { width: 140px; }
-  .main { padding: 18px; }
+  .api-input { width: 130px; font-size: 0.68rem; }
+  .main { padding: 16px; }
   .stats-grid { grid-template-columns: 1fr; }
 }
 </style>
 </head>
 <body>
 
-<!-- ═════════════ HEADER / NAVBAR ═════════════ -->
+<!-- ═════════════ HEADER ═════════════ -->
 <header class="header">
   <div class="header-left">
-    <a class="header-logo" onclick="goHome()" title="HC Panel — Home">HC Panel</a>
+    <a class="header-logo" onclick="goHome()" title="HC Panel — Home">
+      <!-- Custom logo: 2 interlocking hexagons -->
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 2L3 7v10l9 5 9-5V7L12 2z"/>
+        <path d="M12 22V12"/>
+        <path d="M3 7l9 5 9-5"/>
+      </svg>
+      HC Panel
+    </a>
     <div class="header-links">
-      <button class="header-btn docs-btn" onclick="window.open(apiUrl() + '/docs', '_blank')">📄 /docs</button>
-      <button class="header-btn health-btn" onclick="window.open(apiUrl() + '/health', '_blank')">💚 /health</button>
+      <button class="header-btn docs-btn" onclick="window.open(apiUrl() + '/docs', '_blank')">
+        <i data-lucide="file-text" style="width:14px;height:14px"></i> Docs
+      </button>
+      <button class="header-btn health-btn" onclick="window.open(apiUrl() + '/health', '_blank')">
+        <i data-lucide="activity" style="width:14px;height:14px"></i> Health
+      </button>
     </div>
   </div>
   <div class="header-right">
-    <input type="text" class="api-input" id="apiUrl" value="" placeholder="API URL (empty = same origin)">
-    <button class="connect-btn" onclick="connectAPI()">Connect</button>
+    <input type="text" class="api-input" id="apiUrl" value="" placeholder="API URL (empty = auto)">
+    <button class="connect-btn" onclick="connectAPI()">
+      <i data-lucide="link" style="width:13px;height:13px"></i> Connect
+    </button>
     <span class="status-dot" id="statusDot">Connected</span>
   </div>
 </header>
 
 <div class="app">
 
-  <!-- ═════════════ SIDEBAR — LEFT ═════════════ -->
+  <!-- ═════════════ SIDEBAR ═════════════ -->
   <aside class="sidebar">
-    <div class="sidebar-section">Navigation</div>
+    <div class="sidebar-section">Main</div>
     <nav>
       <div class="nav-item active" data-section="dashboard">
-        <span class="icon">📊</span> Dashboard
+        <i data-lucide="layout-dashboard"></i> Dashboard
         <span class="nav-badge" id="poolBadge">0</span>
       </div>
       <div class="nav-item" data-section="turnstile">
-        <span class="icon">🛡️</span> Turnstile Solver
+        <i data-lucide="shield-check"></i> Turnstile Solver
       </div>
       <div class="nav-item" data-section="hcaptcha">
-        <span class="icon">🔐</span> hCaptcha Solver
+        <i data-lucide="lock-keyhole"></i> hCaptcha Solver
       </div>
+      <div class="sidebar-section" style="margin-top:8px">System</div>
       <div class="nav-item" data-section="pool">
-        <span class="icon">🏊</span> Token Pool
+        <i data-lucide="database"></i> Token Pool
       </div>
       <div class="nav-item" data-section="history">
-        <span class="icon">📋</span> History
+        <i data-lucide="clock-arrow-up"></i> History
       </div>
       <div class="nav-item" data-section="docs">
-        <span class="icon">📚</span> API Docs
+        <i data-lucide="book-open-text"></i> API Docs
       </div>
     </nav>
     <div class="sidebar-footer">
@@ -501,7 +358,7 @@ tr:hover td { background: rgba(255,255,255,0.02); }
       <div class="stat-card blue">
         <div class="stat-label">Avg Speed</div>
         <div class="stat-value" id="statSpeed">—</div>
-        <div class="stat-sub">Seconds per solve</div>
+        <div class="stat-sub">Seconds / solve</div>
       </div>
     </div>
 
@@ -510,23 +367,25 @@ tr:hover td { background: rgba(255,255,255,0.02); }
       <div class="card">
         <div class="card-header">
           <div>
-            <div class="card-title">Overview</div>
-            <div class="card-subtitle">Service status &amp; token pools</div>
+            <div class="card-title"><i data-lucide="bar-chart-3"></i> Overview</div>
+            <div class="card-subtitle">Service status &amp; token pool levels</div>
           </div>
-          <button class="btn btn-outline" onclick="refreshDashboard()">🔄 Refresh</button>
+          <button class="btn btn-outline" onclick="refreshDashboard()">
+            <i data-lucide="refresh-cw"></i> Refresh
+          </button>
         </div>
         <div class="pool-grid">
           <div>
-            <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
-              <span style="font-weight:600;">🔐 hCaptcha Pool</span>
-              <span id="hcPoolLabel">—/50</span>
+            <div style="display:flex;justify-content:space-between;margin-bottom:6px;font-size:0.88rem;">
+              <span style="font-weight:600;display:flex;align-items:center;gap:6px;"><i data-lucide="lock-keyhole" style="width:16px;height:16px;color:var(--success)"></i> hCaptcha Pool</span>
+              <span id="hcPoolLabel" style="font-family:var(--mono);font-size:0.78rem;">—/50</span>
             </div>
             <div class="pool-meter"><div class="pool-fill" id="hcPoolBar" style="width:0%;background:var(--success);"></div></div>
           </div>
           <div>
-            <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
-              <span style="font-weight:600;">🛡️ Turnstile Pool</span>
-              <span id="tsPoolLabel">—/50</span>
+            <div style="display:flex;justify-content:space-between;margin-bottom:6px;font-size:0.88rem;">
+              <span style="font-weight:600;display:flex;align-items:center;gap:6px;"><i data-lucide="shield-check" style="width:16px;height:16px;color:var(--primary)"></i> Turnstile Pool</span>
+              <span id="tsPoolLabel" style="font-family:var(--mono);font-size:0.78rem;">—/50</span>
             </div>
             <div class="pool-meter"><div class="pool-fill" id="tsPoolBar" style="width:0%;background:var(--primary);"></div></div>
           </div>
@@ -536,7 +395,7 @@ tr:hover td { background: rgba(255,255,255,0.02); }
       <div class="card">
         <div class="card-header">
           <div>
-            <div class="card-title">Quick Solve</div>
+            <div class="card-title"><i data-lucide="zap"></i> Quick Solve</div>
             <div class="card-subtitle">Pick captcha type and solve instantly</div>
           </div>
         </div>
@@ -561,14 +420,16 @@ tr:hover td { background: rgba(255,255,255,0.02); }
             <input type="number" id="quickTimeout" value="45" min="10" max="120">
           </div>
           <div class="form-full">
-            <button class="btn btn-primary" onclick="quickSolve()" id="quickSolveBtn">⚡ Solve Now</button>
+            <button class="btn btn-primary" onclick="quickSolve()" id="quickSolveBtn">
+              <i data-lucide="play"></i> Solve Now
+            </button>
           </div>
         </div>
         <div class="token-box" id="quickTokenBox">
-          <button class="copy-btn" onclick="copyToken('quickTokenText')">Copy</button>
+          <button class="copy-btn" onclick="copyToken('quickTokenText')"><i data-lucide="copy"></i> Copy</button>
           <span id="quickTokenText"></span>
         </div>
-        <div id="quickElapsed" style="margin-top:8px;font-size:0.78rem;color:var(--text2);display:none;"></div>
+        <div id="quickElapsed" style="margin-top:8px;font-size:0.76rem;color:var(--text2);display:none;"></div>
       </div>
     </section>
 
@@ -577,17 +438,17 @@ tr:hover td { background: rgba(255,255,255,0.02); }
       <div class="card">
         <div class="card-header">
           <div>
-            <div class="card-title">🛡️ Cloudflare Turnstile Solver</div>
+            <div class="card-title"><i data-lucide="shield-check"></i> Cloudflare Turnstile Solver</div>
             <div class="card-subtitle">Injects widget into real page DOM — any site, any key</div>
           </div>
         </div>
         <div class="form-grid">
           <div class="form-group">
-            <label>Site Key *</label>
+            <label>Site Key</label>
             <input type="text" id="tsKey" placeholder="0x4AAAAAAActoBfh_En8yr3T">
           </div>
           <div class="form-group">
-            <label>Site URL *</label>
+            <label>Site URL</label>
             <input type="text" id="tsUrl" placeholder="https://example.com/">
           </div>
           <div class="form-group">
@@ -599,15 +460,19 @@ tr:hover td { background: rgba(255,255,255,0.02); }
             <input type="text" id="tsProxy" placeholder="http://user:pass@host:port">
           </div>
           <div class="form-full">
-            <button class="btn btn-primary" onclick="solveTurnstile()" id="tsSolveBtn">🔓 Solve Turnstile</button>
-            <button class="btn btn-outline" onclick="getTurnstileFromPool()" id="tsPoolBtn" style="margin-left:8px;">🏊 Pull from Pool</button>
+            <button class="btn btn-primary" onclick="solveTurnstile()" id="tsSolveBtn">
+              <i data-lucide="unlock"></i> Solve Turnstile
+            </button>
+            <button class="btn btn-outline" onclick="getTurnstileFromPool()" id="tsPoolBtn" style="margin-left:8px;">
+              <i data-lucide="download"></i> Pull from Pool
+            </button>
           </div>
         </div>
         <div class="token-box" id="tsTokenBox">
-          <button class="copy-btn" onclick="copyToken('tsTokenText')">Copy</button>
+          <button class="copy-btn" onclick="copyToken('tsTokenText')"><i data-lucide="copy"></i> Copy</button>
           <span id="tsTokenText"></span>
         </div>
-        <div id="tsElapsed" style="margin-top:8px;font-size:0.78rem;color:var(--text2);display:none;"></div>
+        <div id="tsElapsed" style="margin-top:8px;font-size:0.76rem;color:var(--text2);display:none;"></div>
       </div>
     </section>
 
@@ -616,17 +481,17 @@ tr:hover td { background: rgba(255,255,255,0.02); }
       <div class="card">
         <div class="card-header">
           <div>
-            <div class="card-title">🔐 hCaptcha Solver</div>
+            <div class="card-title"><i data-lucide="lock-keyhole"></i> hCaptcha Solver</div>
             <div class="card-subtitle">Injects fake hCaptcha page &amp; extracts token — any site, any key</div>
           </div>
         </div>
         <div class="form-grid">
           <div class="form-group">
-            <label>Site Key *</label>
+            <label>Site Key</label>
             <input type="text" id="hcKey" placeholder="463b917e-e264-403f-ad34-34af0ee10294">
           </div>
           <div class="form-group">
-            <label>Site URL *</label>
+            <label>Site URL</label>
             <input type="text" id="hcUrl" placeholder="https://example.com/">
           </div>
           <div class="form-group">
@@ -638,15 +503,19 @@ tr:hover td { background: rgba(255,255,255,0.02); }
             <input type="text" id="hcProxyAuth" placeholder="username:password">
           </div>
           <div class="form-full">
-            <button class="btn btn-primary" onclick="solveHCaptcha()" id="hcSolveBtn">🔓 Solve hCaptcha</button>
-            <button class="btn btn-outline" onclick="getHCaptchaFromPool()" id="hcPoolBtn" style="margin-left:8px;">🏊 Pull from Pool</button>
+            <button class="btn btn-primary" onclick="solveHCaptcha()" id="hcSolveBtn">
+              <i data-lucide="unlock"></i> Solve hCaptcha
+            </button>
+            <button class="btn btn-outline" onclick="getHCaptchaFromPool()" id="hcPoolBtn" style="margin-left:8px;">
+              <i data-lucide="download"></i> Pull from Pool
+            </button>
           </div>
         </div>
         <div class="token-box" id="hcTokenBox">
-          <button class="copy-btn" onclick="copyToken('hcTokenText')">Copy</button>
+          <button class="copy-btn" onclick="copyToken('hcTokenText')"><i data-lucide="copy"></i> Copy</button>
           <span id="hcTokenText"></span>
         </div>
-        <div id="hcElapsed" style="margin-top:8px;font-size:0.78rem;color:var(--text2);display:none;"></div>
+        <div id="hcElapsed" style="margin-top:8px;font-size:0.76rem;color:var(--text2);display:none;"></div>
       </div>
     </section>
 
@@ -655,14 +524,18 @@ tr:hover td { background: rgba(255,255,255,0.02); }
       <div class="card">
         <div class="card-header">
           <div>
-            <div class="card-title">🏊 Token Pool Status</div>
+            <div class="card-title"><i data-lucide="database"></i> Token Pool Status</div>
             <div class="card-subtitle">Live pool fill levels — hCaptcha + Turnstile</div>
           </div>
-          <button class="btn btn-outline" onclick="refreshPool()">🔄 Refresh</button>
+          <button class="btn btn-outline" onclick="refreshPool()">
+            <i data-lucide="refresh-cw"></i> Refresh
+          </button>
         </div>
         <div class="pool-grid">
           <div>
-            <div style="font-weight:700;margin-bottom:10px;">🔐 hCaptcha Pool</div>
+            <div style="font-weight:700;margin-bottom:10px;display:flex;align-items:center;gap:6px;">
+              <i data-lucide="lock-keyhole" style="width:18px;height:18px;color:var(--success)"></i> hCaptcha Pool
+            </div>
             <div class="stat-value" id="poolHCVal" style="font-size:3rem;color:var(--success);">—</div>
             <div style="color:var(--text2);">/ 50 target</div>
             <div class="pool-meter" style="margin-top:14px;">
@@ -670,7 +543,9 @@ tr:hover td { background: rgba(255,255,255,0.02); }
             </div>
           </div>
           <div>
-            <div style="font-weight:700;margin-bottom:10px;">🛡️ Turnstile Pool</div>
+            <div style="font-weight:700;margin-bottom:10px;display:flex;align-items:center;gap:6px;">
+              <i data-lucide="shield-check" style="width:18px;height:18px;color:var(--primary)"></i> Turnstile Pool
+            </div>
             <div class="stat-value" id="poolTSVal" style="font-size:3rem;color:var(--primary);">—</div>
             <div style="color:var(--text2);">/ 50 target</div>
             <div class="pool-meter" style="margin-top:14px;">
@@ -686,10 +561,12 @@ tr:hover td { background: rgba(255,255,255,0.02); }
       <div class="card">
         <div class="card-header">
           <div>
-            <div class="card-title">📋 Operation History</div>
+            <div class="card-title"><i data-lucide="clock-arrow-up"></i> Operation History</div>
             <div class="card-subtitle" id="historyCount">0 operations</div>
           </div>
-          <button class="btn btn-outline" onclick="clearHistory()">🗑️ Clear</button>
+          <button class="btn btn-outline" onclick="clearHistory()">
+            <i data-lucide="trash-2"></i> Clear
+          </button>
         </div>
         <div class="table-wrap">
           <table>
@@ -709,71 +586,55 @@ tr:hover td { background: rgba(255,255,255,0.02); }
       <div class="card">
         <div class="card-header">
           <div>
-            <div class="card-title">📚 API Documentation</div>
-            <div class="card-subtitle">Use the API from any language</div>
+            <div class="card-title"><i data-lucide="book-open-text"></i> API Documentation</div>
+            <div class="card-subtitle">Use the API from any language — cURL, Python, JavaScript</div>
           </div>
         </div>
 
-        <h3 style="margin:20px 0 8px;color:var(--primary);">POST /solve/turnstile</h3>
+        <h3 style="margin:20px 0 6px;color:var(--primary);font-size:0.95rem;display:flex;align-items:center;gap:6px;"><i data-lucide="router" style="width:17px;height:17px"></i> POST /solve/turnstile</h3>
         <div class="card" style="background:var(--surface2);">
-          <pre style="font-family:var(--mono);font-size:0.72rem;overflow-x:auto;color:var(--text);">
+          <pre style="font-family:var(--mono);font-size:0.7rem;overflow-x:auto;color:var(--text);line-height:1.65;">
 curl -X POST <span id="docTsUrl">/</span>solve/turnstile \
   -H "Content-Type: application/json" \
   -d '{"sitekey":"0x4AAAAAAActoBfh_En8yr3T","siteurl":"https://example.com/","timeout":45}'
 
-<span style="color:var(--success);"># Response 200:</span>
+<span style="color:var(--success);"># 200 OK</span>
 {"status":"success","token":"0.abc123...","elapsed":4.23}</pre>
         </div>
 
-        <h3 style="margin:20px 0 8px;color:var(--primary);">POST /solve/hcaptcha</h3>
+        <h3 style="margin:20px 0 6px;color:var(--primary);font-size:0.95rem;display:flex;align-items:center;gap:6px;"><i data-lucide="router" style="width:17px;height:17px"></i> POST /solve/hcaptcha</h3>
         <div class="card" style="background:var(--surface2);">
-          <pre style="font-family:var(--mono);font-size:0.72rem;overflow-x:auto;color:var(--text);">
+          <pre style="font-family:var(--mono);font-size:0.7rem;overflow-x:auto;color:var(--text);line-height:1.65;">
 curl -X POST <span id="docHcUrl">/</span>solve/hcaptcha \
   -H "Content-Type: application/json" \
   -d '{"sitekey":"463b917e-e264-403f-ad34-34af0ee10294","siteurl":"https://example.com/"}'
 
-<span style="color:var(--success);"># Response 200:</span>
+<span style="color:var(--success);"># 200 OK</span>
 {"status":"success","token":"P0_abc123...","elapsed":5.67}</pre>
         </div>
 
-        <h3 style="margin:20px 0 8px;color:var(--primary);">Python Example</h3>
+        <h3 style="margin:20px 0 6px;color:var(--primary);font-size:0.95rem;display:flex;align-items:center;gap:6px;"><i data-lucide="code" style="width:17px;height:17px"></i> Python</h3>
         <div class="card" style="background:var(--surface2);">
-          <pre style="font-family:var(--mono);font-size:0.72rem;overflow-x:auto;color:var(--text);">
+          <pre style="font-family:var(--mono);font-size:0.7rem;overflow-x:auto;color:var(--text);line-height:1.65;">
 import requests
 API = "<span id="docPyUrl">/</span>"
 
-# Turnstile
 r = requests.post(f"{API}/solve/turnstile", json={
     "sitekey": "0x4AAAAAAActoBfh_En8yr3T",
-    "siteurl": "https://example.com/"
-})
-print(r.json()["token"])
-
-# hCaptcha
-r = requests.post(f"{API}/solve/hcaptcha", json={
-    "sitekey": "463b917e-e264-403f-ad34-34af0ee10294",
     "siteurl": "https://example.com/"
 })
 print(r.json()["token"])</pre>
         </div>
 
-        <h3 style="margin:20px 0 8px;color:var(--primary);">JavaScript Example</h3>
+        <h3 style="margin:20px 0 6px;color:var(--primary);font-size:0.95rem;display:flex;align-items:center;gap:6px;"><i data-lucide="braces" style="width:17px;height:17px"></i> JavaScript</h3>
         <div class="card" style="background:var(--surface2);">
-          <pre style="font-family:var(--mono);font-size:0.72rem;overflow-x:auto;color:var(--text);">
+          <pre style="font-family:var(--mono);font-size:0.7rem;overflow-x:auto;color:var(--text);line-height:1.65;">
 const API = "<span id="docJsUrl">/</span>";
 
-// Turnstile
-const ts = await fetch(`${API}/solve/turnstile`, {
-  method: 'POST',
-  headers: {'Content-Type': 'application/json'},
-  body: JSON.stringify({sitekey: '0x4...', siteurl: 'https://...'}),
-}).then(r => r.json());
-
-// hCaptcha
-const hc = await fetch(`${API}/solve/hcaptcha`, {
-  method: 'POST',
-  headers: {'Content-Type': 'application/json'},
-  body: JSON.stringify({sitekey: '463...', siteurl: 'https://...'}),
+const ts = await fetch(API + "/solve/turnstile", {
+  method: "POST",
+  headers: {"Content-Type": "application/json"},
+  body: JSON.stringify({sitekey: "0x4...", siteurl: "https://..."})
 }).then(r => r.json());</pre>
         </div>
       </div>
@@ -792,8 +653,10 @@ let API_URL = localStorage.getItem('apiUrl') || '';
 let totalSolved = parseInt(localStorage.getItem('totalSolved') || '0');
 let solveTimes = JSON.parse(localStorage.getItem('solveTimes') || '[]');
 let history = JSON.parse(localStorage.getItem('history') || '[]');
-
 document.getElementById('apiUrl').value = API_URL;
+
+// ═════════════ ICONS RENDER ═════════════
+lucide.createIcons();
 
 // ═════════════ NAVIGATION ═════════════
 document.querySelectorAll('.nav-item').forEach(item => {
@@ -807,10 +670,10 @@ document.querySelectorAll('.nav-item').forEach(item => {
     if (sec === 'pool') refreshPool();
     if (sec === 'history') renderHistory();
     if (sec === 'docs') updateDocUrls();
+    setTimeout(lucide.createIcons, 50);
   });
 });
 
-// Logo click → go home (dashboard)
 function goHome() {
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
   document.querySelector('.nav-item[data-section="dashboard"]').classList.add('active');
@@ -850,9 +713,7 @@ async function checkHealth() {
 
 function updateDocUrls() {
   const base = apiUrl();
-  document.querySelectorAll('#docTsUrl, #docHcUrl, #docPyUrl, #docJsUrl').forEach(el => {
-    el.textContent = base;
-  });
+  document.querySelectorAll('#docTsUrl, #docHcUrl, #docPyUrl, #docJsUrl').forEach(el => { el.textContent = base; });
 }
 
 // ═════════════ DASHBOARD ═════════════
@@ -957,7 +818,8 @@ async function doSolveTurnstile(key, url, timeout = 45) {
     return null;
   } finally {
     btn.disabled = false;
-    btn.innerHTML = '🔓 Solve Turnstile';
+    btn.innerHTML = '<i data-lucide="unlock"></i> Solve Turnstile';
+    lucide.createIcons();
     updateStats();
   }
 }
@@ -979,7 +841,12 @@ async function getTurnstileFromPool() {
       toast('⚡ Turnstile token pulled from pool', 'success');
     } else { toast('❌ ' + d.detail, 'error'); }
   } catch (e) { toast('❌ ' + e.message, 'error'); }
-  finally { btn.disabled = false; btn.innerHTML = '🏊 Pull from Pool'; updateStats(); }
+  finally {
+    btn.disabled = false;
+    btn.innerHTML = '<i data-lucide="download"></i> Pull from Pool';
+    lucide.createIcons();
+    updateStats();
+  }
 }
 
 // ═════════════ HCAPTCHA ═════════════
@@ -1001,10 +868,7 @@ async function doSolveHCaptcha(key, url) {
     const body = { sitekey: key, siteurl: url };
     const server = document.getElementById('hcProxyServer').value.trim();
     const auth = document.getElementById('hcProxyAuth').value.trim();
-    if (server && auth) {
-      const [u, p] = auth.split(':');
-      body.proxy = { server, username: u, password: p };
-    }
+    if (server && auth) { const [u, p] = auth.split(':'); body.proxy = { server, username: u, password: p }; }
     const r = await fetch(apiUrl() + '/solve/hcaptcha', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body) });
     const d = await r.json();
     const elapsed = ((performance.now() - t0) / 1000).toFixed(2);
@@ -1033,7 +897,8 @@ async function doSolveHCaptcha(key, url) {
     return null;
   } finally {
     btn.disabled = false;
-    btn.innerHTML = '🔓 Solve hCaptcha';
+    btn.innerHTML = '<i data-lucide="unlock"></i> Solve hCaptcha';
+    lucide.createIcons();
     updateStats();
   }
 }
@@ -1055,13 +920,18 @@ async function getHCaptchaFromPool() {
       toast('⚡ hCaptcha token pulled from pool', 'success');
     } else { toast('❌ ' + d.detail, 'error'); }
   } catch (e) { toast('❌ ' + e.message, 'error'); }
-  finally { btn.disabled = false; btn.innerHTML = '🏊 Pull from Pool'; updateStats(); }
+  finally {
+    btn.disabled = false;
+    btn.innerHTML = '<i data-lucide="download"></i> Pull from Pool';
+    lucide.createIcons();
+    updateStats();
+  }
 }
 
 // ═════════════ POOL ═════════════
 async function refreshPool() {
   try {
-    const info = await fetch(apiUrl() + '/docs').then(r => r.json());
+    const info = await fetch(apiUrl() + '/docs?json=1').then(r => r.json());
     const hcSize = info.pool?.hcaptcha_size || 0;
     document.getElementById('poolHCVal').textContent = hcSize;
     document.getElementById('poolHCBar').style.width = Math.min(100, (hcSize / 50) * 100) + '%';
@@ -1096,11 +966,11 @@ function renderHistory() {
     </tr>`).join('');
 }
 
-function clearHistory() { history = []; saveState(); renderHistory(); toast('🗑️ History cleared', 'success'); }
+function clearHistory() { history = []; saveState(); renderHistory(); toast('History cleared', 'success'); }
 
 // ═════════════ UTILS ═════════════
 function copyToken(id) {
-  navigator.clipboard.writeText(document.getElementById(id).textContent).then(() => toast('📋 Copied!', 'success'));
+  navigator.clipboard.writeText(document.getElementById(id).textContent).then(() => toast('Copied to clipboard!', 'success'));
 }
 
 function toast(msg, type) {

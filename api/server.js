@@ -196,31 +196,25 @@ pre{background:var(--bg);border:1px solid var(--border);border-radius:var(--radi
 .stat-card.warn .value{color:var(--warning)}
 .pool-bar{width:100%;height:8px;background:var(--bg);border-radius:10px;margin-top:14px;overflow:hidden}
 .pool-fill{height:100%;border-radius:10px;transition:width .6s}
+svg.lucide,i[data-lucide]{display:inline-block;vertical-align:middle;margin-right:4px}
+.header a svg,.header-btns a svg,i[data-lucide]{flex-shrink:0}
 @media(max-width:768px){.header{padding:0 16px}.container{padding:20px 14px}.endpoint{grid-template-columns:60px 100px 1fr}.status-grid{grid-template-columns:1fr}}
 `;
 
 function buildDocsHTML(poolSize) {
-  return `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>API Docs — Free Captcha API</title><style>${baseCSS}</style></head><body>
-<header class="header"><a href="/">HC Panel</a><div class="header-btns"><a href="/docs" class="active">📄 Docs</a><a href="/health">💚 Health</a></div></header>
+  return `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>API Docs — Free Captcha API</title><script src="https://unpkg.com/lucide@latest"><\/script><style>${baseCSS}</style></head><body>
+<header class="header"><a href="/"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L3 7v10l9 5 9-5V7L12 2z"/><path d="M12 22V12"/><path d="M3 7l9 5 9-5"/></svg> HC Panel</a><div class="header-btns"><a href="/docs" class="active"><i data-lucide="file-text" style="width:14px;height:14px"></i> Docs</a><a href="/health"><i data-lucide="activity" style="width:14px;height:14px"></i> Health</a></div></header>
 <div class="container">
-<h1>📚 API Documentation</h1>
+<h1><i data-lucide="book-open-text"></i> API Documentation</h1>
 <p class="sub">Unified solver for Cloudflare Turnstile &amp; hCaptcha — any site, any key</p>
 
-<div class="card"><div class="card-row"><span><strong>🔐 hCaptcha Pool</strong></span><span><span class="badge badge-ok">${poolSize} tokens ready</span></span></div>
+<div class="card"><div class="card-row"><span><strong><i data-lucide="lock-keyhole" style="width:16px;height:16px"></i> hCaptcha Pool</strong></span><span><span class="badge badge-ok">${poolSize} tokens ready</span></span></div>
 <div class="pool-bar"><div class="pool-fill" style="width:${Math.min(100,(poolSize/50)*100)}%;background:var(--success)"></div></div></div>
 
-<h2>Endpoints</h2>
-<div class="card">
-<div class="endpoint"><span class="method method-get">GET</span><span class="path">/</span><span class="desc">HC Panel Dashboard (HTML)</span></div>
-<div class="endpoint"><span class="method method-get">GET</span><span class="path">/docs</span><span class="desc">API Documentation (HTML)</span></div>
-<div class="endpoint"><span class="method method-get">GET</span><span class="path">/health</span><span class="desc">Service health &amp; pool status (HTML)</span></div>
-<div class="endpoint"><span class="method method-post">POST</span><span class="path">/solve/turnstile</span><span class="desc">Solve Cloudflare Turnstile (direct)</span></div>
-<div class="endpoint"><span class="method method-post">POST</span><span class="path">/solve/hcaptcha</span><span class="desc">Solve hCaptcha (direct, optional proxy)</span></div>
-<div class="endpoint"><span class="method method-get">GET</span><span class="path">/get-hcaptcha-token</span><span class="desc">Pre-solved hCaptcha token from Redis pool</span></div>
-<div class="endpoint"><span class="method method-get">GET</span><span class="path">/get-turnstile-token</span><span class="desc">Pre-solved Turnstile token from Redis pool</span></div>
-</div>
+<h2><i data-lucide="router"></i> Endpoints</h2>
+<div class="card">${['GET|/|HC Panel Dashboard (HTML)','GET|/docs|API Documentation (HTML)','GET|/health|Service health & pool status (HTML)','POST|/solve/turnstile|Solve Cloudflare Turnstile (direct)','POST|/solve/hcaptcha|Solve hCaptcha (direct, optional proxy)','GET|/get-hcaptcha-token|Pre-solved hCaptcha token from Redis pool','GET|/get-turnstile-token|Pre-solved Turnstile token from Redis pool'].map(e => { const [m,p,d] = e.split('|'); return `<div class="endpoint"><span class="method ${m==='GET'?'method-get':'method-post'}">${m}</span><span class="path">${p}</span><span class="desc">${d}</span></div>`; }).join('')}</div>
 
-<h2>POST /solve/turnstile</h2>
+<h2><i data-lucide="shield-check"></i> POST /solve/turnstile</h2>
 <div class="card"><pre>curl -X POST <span style="color:var(--text2)">YOUR_HOST</span>/solve/turnstile \\
   -H "Content-Type: application/json" \\
   -d '{"sitekey":"0x4AAAAAAActoBfh_En8yr3T","siteurl":"https://example.com/","timeout":45}'
@@ -228,7 +222,7 @@ function buildDocsHTML(poolSize) {
 <span style="color:var(--success)"># 200 OK</span>
 {"status":"success","token":"0.abc123...","elapsed":4.23}</pre></div>
 
-<h2>POST /solve/hcaptcha</h2>
+<h2><i data-lucide="lock-keyhole"></i> POST /solve/hcaptcha</h2>
 <div class="card"><pre>curl -X POST <span style="color:var(--text2)">YOUR_HOST</span>/solve/hcaptcha \\
   -H "Content-Type: application/json" \\
   -d '{"sitekey":"463b917e-e264-403f-ad34-34af0ee10294","siteurl":"https://example.com/"}'
@@ -239,7 +233,7 @@ function buildDocsHTML(poolSize) {
 <span style="color:var(--text2)"># With proxy:</span>
 {"sitekey":"...","siteurl":"...","proxy":{"server":"http://host:port","username":"u","password":"p"}}</pre></div>
 
-<h2>Python</h2>
+<h2><i data-lucide="code"></i> Python</h2>
 <div class="card"><pre>import requests
 API = "<span style="color:var(--text2)">YOUR_HOST</span>"
 
@@ -261,7 +255,7 @@ print(r.json()["token"])
 r = requests.get(f"{API}/get-hcaptcha-token")
 print(r.json()["token"])</pre></div>
 
-<h2>JavaScript</h2>
+<h2><i data-lucide="braces"></i> JavaScript</h2>
 <div class="card"><pre>const API = "<span style="color:var(--text2)">YOUR_HOST</span>";
 
 // Turnstile
@@ -280,36 +274,30 @@ const hc = await fetch(API + "/solve/hcaptcha", {
 
 // From pool (instant, no waiting)
 const pool = await fetch(API + "/get-hcaptcha-token").then(r => r.json());</pre></div>
-</div></body></html>`;
+</div>
+<script>lucide.createIcons()<\/script></body></html>`;
 }
 
 function buildHealthHTML(poolSize) {
   const redisStatus = poolSize >= 0;
   const overallStatus = redisStatus ? 'ok' : 'degraded';
-  return `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>Health — Free Captcha API</title><style>${baseCSS}</style></head><body>
-<header class="header"><a href="/">HC Panel</a><div class="header-btns"><a href="/docs">📄 Docs</a><a href="/health" class="active">💚 Health</a></div></header>
+  return `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>Health — Free Captcha API</title><script src="https://unpkg.com/lucide@latest"><\/script><style>${baseCSS}</style></head><body>
+<header class="header"><a href="/"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L3 7v10l9 5 9-5V7L12 2z"/><path d="M12 22V12"/><path d="M3 7l9 5 9-5"/></svg> HC Panel</a><div class="header-btns"><a href="/docs"><i data-lucide="file-text" style="width:14px;height:14px"></i> Docs</a><a href="/health" class="active"><i data-lucide="activity" style="width:14px;height:14px"></i> Health</a></div></header>
 <div class="container">
-<h1>💚 Service Health</h1>
+<h1><i data-lucide="activity"></i> Service Health</h1>
 <p class="sub">Real-time status of the Free Captcha API</p>
 
 <div class="status-grid">
-<div class="stat-card ok"><div class="label">Overall Status</div><div class="value">${overallStatus === 'ok' ? '✅ OK' : '⚠️ Degraded'}</div></div>
+<div class="stat-card ok"><div class="label">Overall Status</div><div class="value">${overallStatus === 'ok' ? 'OK' : 'Degraded'}</div></div>
 <div class="stat-card ok"><div class="label">Uptime</div><div class="value">${process.uptime().toFixed(0)}s</div></div>
-<div class="stat-card ${redisStatus ? 'ok' : 'warn'}"><div class="label">Redis</div><div class="value">${redisStatus ? '✅ Connected' : '⚠️ Disabled'}</div></div>
+<div class="stat-card ${redisStatus ? 'ok' : 'warn'}"><div class="label">Redis</div><div class="value">${redisStatus ? 'Connected' : 'Disabled'}</div></div>
 </div>
 
-<div class="card"><div class="card-row"><span><strong>🔐 hCaptcha Pool Size</strong></span><span><span class="badge ${poolSize >= 20 ? 'badge-ok' : 'badge-warn'}">${poolSize} / 50</span></span></div>
+<div class="card"><div class="card-row"><span><strong><i data-lucide="database" style="width:16px;height:16px"></i> hCaptcha Pool Size</strong></span><span><span class="badge ${poolSize >= 20 ? 'badge-ok' : 'badge-warn'}">${poolSize} / 50</span></span></div>
 <div class="pool-bar"><div class="pool-fill" style="width:${Math.min(100,(poolSize/50)*100)}%;background:${poolSize >= 20 ? 'var(--success)' : 'var(--warning)'}"></div></div></div>
 
-<div class="card"><div class="card-row"><span><strong>Endpoints</strong></span></div>
-<div style="margin-top:12px;display:grid;gap:8px;">
-<div class="endpoint"><span class="method method-get">GET</span><span class="path">/</span><span class="desc">Dashboard</span></div>
-<div class="endpoint"><span class="method method-get">GET</span><span class="path">/docs</span><span class="desc">API Docs</span></div>
-<div class="endpoint"><span class="method method-get">GET</span><span class="path">/health</span><span class="desc">This page</span></div>
-<div class="endpoint"><span class="method method-post">POST</span><span class="path">/solve/turnstile</span><span class="desc">Solve Turnstile</span></div>
-<div class="endpoint"><span class="method method-post">POST</span><span class="path">/solve/hcaptcha</span><span class="desc">Solve hCaptcha</span></div>
-<div class="endpoint"><span class="method method-get">GET</span><span class="path">/get-hcaptcha-token</span><span class="desc">hCaptcha pool token</span></div>
-<div class="endpoint"><span class="method method-get">GET</span><span class="path">/get-turnstile-token</span><span class="desc">Turnstile pool token</span></div>
-</div></div>
-</div></body></html>`;
+<div class="card"><div class="card-row"><span><strong><i data-lucide="router" style="width:16px;height:16px"></i> All Endpoints</strong></span></div>
+<div style="margin-top:12px;display:grid;gap:8px;">${['GET|/|Dashboard','GET|/docs|API Docs','GET|/health|This page','POST|/solve/turnstile|Solve Turnstile','POST|/solve/hcaptcha|Solve hCaptcha','GET|/get-hcaptcha-token|hCaptcha pool token','GET|/get-turnstile-token|Turnstile pool token'].map(e => { const [m,p,d] = e.split('|'); return `<div class="endpoint"><span class="method ${m==='GET'?'method-get':'method-post'}">${m}</span><span class="path">${p}</span><span class="desc">${d}</span></div>`; }).join('')}</div></div>
+</div>
+<script>lucide.createIcons()<\/script></body></html>`;
 }
