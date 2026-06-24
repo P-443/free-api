@@ -6,8 +6,8 @@
 
 import Redis from 'ioredis';
 import { readFileSync } from 'fs';
-import { solveHCaptchaBatch } from '../solver/hcaptcha.js';
-import { solveTurnstile } from '../solver/turnstile.js';
+import { solveHCaptchaBatch } from '../clients/hcaptchaClient.js';
+import { solveTurnstile } from '../clients/turnstileClient.js';
 
 // ── Configuration — from central config module ────────────────
 import { REDIS_URL, HCAPTCHA_SITEKEY, HCAPTCHA_SITEURL, TURNSTILE_SITEKEY, TURNSTILE_SITEURL, TARGET_POOL, LOW_POOL, BATCH_SIZE } from '../config/index.js';
