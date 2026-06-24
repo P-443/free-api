@@ -9,22 +9,12 @@ import { readFileSync } from 'fs';
 import { solveHCaptchaBatch } from '../solver/hcaptcha.js';
 import { solveTurnstile } from '../solver/turnstile.js';
 
-// ── Configuration ─────────────────────────────────────────────
-const REDIS_URL = process.env.REDIS_URL || '';
+// ── Configuration — from central config module ────────────────
+import { REDIS_URL, HCAPTCHA_SITEKEY, HCAPTCHA_SITEURL, TURNSTILE_SITEKEY, TURNSTILE_SITEURL, TARGET_POOL, LOW_POOL, BATCH_SIZE } from '../config/index.js';
 if (!REDIS_URL) {
   console.error('[Worker] REDIS_URL not set. Worker needs Redis. Exiting.');
   process.exit(1);
 }
-
-// Which pools to fill — set via env vars
-const HCAPTCHA_SITEKEY = process.env.HCAPTCHA_SITEKEY || '';
-const HCAPTCHA_SITEURL = process.env.HCAPTCHA_SITEURL || '';
-const TURNSTILE_SITEKEY = process.env.TURNSTILE_SITEKEY || '';
-const TURNSTILE_SITEURL = process.env.TURNSTILE_SITEURL || '';
-
-const TARGET_POOL = parseInt(process.env.TARGET_POOL || '50', 10);
-const LOW_POOL = parseInt(process.env.LOW_POOL || '10', 10);
-const BATCH_SIZE = parseInt(process.env.BATCH_SIZE || '20', 10);
 
 const redis = new Redis(REDIS_URL, { socketTimeout: 30000, socketKeepalive: true });
 

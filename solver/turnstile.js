@@ -7,6 +7,7 @@
 // ═══════════════════════════════════════════════════════════════
 
 import { chromium } from 'playwright';
+import { CHROME_PATH } from '../config/index.js';
 
 // ── Shared persistent browser ────────────────────────────────
 let sharedBrowser = null;
@@ -27,7 +28,7 @@ async function getBrowser() {
   }
 
   if (!sharedBrowser) {
-    const exePath = process.env.CHROME_PATH || '/usr/bin/google-chrome-stable';
+    const exePath = CHROME_PATH;
     console.log('[Turnstile] Launching browser:', exePath);
     sharedBrowser = await chromium.launch({
       headless: true,

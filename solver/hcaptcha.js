@@ -4,6 +4,7 @@
 // ═══════════════════════════════════════════════════════════════
 
 import { chromium } from 'playwright';
+import { CHROME_PATH } from '../config/index.js';
 
 // ── Optimized Chromium flags ──────────────────────────────────
 const BROWSER_ARGS = [
@@ -107,11 +108,7 @@ async function getBrowser() {
   }
 
   if (!sharedBrowser) {
-    const exePath = process.env.CHROME_PATH
-      || '/usr/bin/google-chrome-stable'
-      || '/usr/bin/google-chrome'
-      || '/usr/bin/chromium-browser'
-      || '/usr/bin/chromium';
+    const exePath = CHROME_PATH;
     console.log('[hCaptcha] Launching browser:', exePath);
     sharedBrowser = await chromium.launch({
       headless: true,

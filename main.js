@@ -8,12 +8,10 @@ import { fileURLToPath } from 'url';
 import path from 'path';
 import { existsSync } from 'fs';
 import { buildServer } from './api/server.js';
+import { PORT, POOL_WORKERS, REDIS_URL, IS_LINUX, DISPLAY } from './config/index.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-const PORT = parseInt(process.env.PORT || '9000', 10);
-const POOL_WORKERS = parseInt(process.env.POOL_WORKERS || '0', 10);
-const REDIS_URL = process.env.REDIS_URL || '';
 const PYTHON_SOLVER_DIR = path.join(__dirname, 'python_solver');
 
 async function startPythonSolver() {
@@ -26,8 +24,7 @@ async function startPythonSolver() {
   console.log('[Main] Starting Python Turnstile solver (nodriver)...');
 
   // Start Xvfb if on Linux and not already running
-  const isLinux = process.platform === 'linux';
-  if (isLinux && !process.env.DISPLAY) {
+  if (IS_LINUX && !DISPLAY) {
     try {
       spawn('Xvfb', [':99', '-screen', '0', '1280x900x24'], { stdio: 'ignore', detached: true });
       process.env.DISPLAY = ':99';

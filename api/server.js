@@ -10,6 +10,7 @@ import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { solveTurnstile } from '../solver/turnstile.js';
 import { solveHCaptcha } from '../solver/hcaptcha.js';
+import { REDIS_URL, REDIS_ENABLED, TURNSTILE_SOLVER_URL } from '../config/index.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 // Read static files at startup
@@ -17,10 +18,9 @@ const PANEL_HTML = readFileSync(join(__dirname, '..', 'public', 'index.html'), '
 const FAVICON_SVG = readFileSync(join(__dirname, '..', 'public', 'favicon.svg'), 'utf-8');
 const LOGO_SVG = readFileSync(join(__dirname, '..', 'public', 'logo.svg'), 'utf-8');
 
-// Redis — optional. If REDIS_URL not set, pool features are disabled.
-const REDIS_URL = process.env.REDIS_URL || '';
+// Redis — optional
 let redis = null;
-if (REDIS_URL) {
+if (REDIS_ENABLED) {
   redis = new Redis(REDIS_URL, { socketTimeout: 30000, socketKeepalive: true });
   console.log('[API] Redis connected — token pool enabled');
 } else {
@@ -104,7 +104,7 @@ export async function buildServer() {
     }
 
     const t0 = Date.now();
-    const PYTHON_SOLVER = process.env.TURNSTILE_SOLVER_URL || 'http://127.0.0.1:8191/solve';
+    const PYTHON_SOLVER = TURNSTILE_SOLVER_URL;
 
     // Try Python nodriver solver first (proven working)
     try {
