@@ -28,8 +28,37 @@ if (REDIS_ENABLED) {
   console.log('[API] No REDIS_URL set — token pool disabled, direct solve only');
 }
 
+// ── Server-side stats (shared across all devices) ────────────
+let totalSolved = 0;
+let solveTimes = [];
+const solveHistory = [];
+
+function recordSolve(type, token, elapsed, status) {
+  totalSolved++;
+  solveTimes.push(elapsed);
+  if (solveTimes.length > 100) solveTimes = solveTimes.slice(-100);
+  solveHistory.unshift({ type, token, elapsed, status, time: new Date().toISOString() });
+  if (solveHistory.length > 100) solveHistory.length = 100;
+}
+
+function getAvgSpeed() {
+  if (solveTimes.length === 0) return null;
+  return parseFloat((solveTimes.reduce((a, b) => a + b, 0) / solveTimes.length).toFixed(1));
+}
+
 export async function buildServer() {
   const app = Fastify({ logger: false });
+
+  // ═══════════════════════════════════════════════════════════
+  //  STATS — server-side counters (shared across all devices)
+  // ═══════════════════════════════════════════════════════════
+  app.get('/stats', async (_req, reply) => {
+    return {
+      totalSolved,
+      avgSpeed: getAvgSpeed(),
+      history: solveHistory.slice(0, 50),
+    };
+  });
 
   // ═══════════════════════════════════════════════════════════
   //  HOME — HC Panel Dashboard
@@ -120,8 +149,10 @@ export async function buildServer() {
       if (pyResp.ok && (pyData.token || pyData.status === 'success')) {
         const elapsed = ((Date.now() - t0) / 1000).toFixed(2);
         const tok = pyData.token || pyData;
+        const finalToken = typeof tok === 'string' ? tok : tok.token;
         console.log(`[API] Python solved in ${elapsed}s`);
-        return { status: 'success', token: typeof tok === 'string' ? tok : tok.token, elapsed: parseFloat(elapsed) };
+        recordSolve('turnstile', finalToken?.slice(0, 20) || '—', parseFloat(elapsed), 'success');
+        return { status: 'success', token: finalToken, elapsed: parseFloat(elapsed) };
       }
       console.log('[API] Python solver failed, trying built-in...');
     } catch (pyErr) {
@@ -134,10 +165,12 @@ export async function buildServer() {
       const token = await solveTurnstile(sitekey, siteurl, timeout || 45, proxy || null);
       const elapsed = ((Date.now() - t0) / 1000).toFixed(2);
       console.log(`[API] Built-in solved in ${elapsed}s`);
+      recordSolve('turnstile', token?.slice(0, 20) || '—', parseFloat(elapsed), 'success');
       return { status: 'success', token, elapsed: parseFloat(elapsed) };
     } catch (e) {
       const elapsed = ((Date.now() - t0) / 1000).toFixed(2);
       console.error(`[API] Turnstile error after ${elapsed}s:`, e.message);
+      recordSolve('turnstile', '—', parseFloat(elapsed), 'failed');
       return reply.code(500).send({ status: 'error', detail: e.message, elapsed: parseFloat(elapsed) });
     }
   });
@@ -160,12 +193,15 @@ export async function buildServer() {
       const elapsed = ((Date.now() - t0) / 1000).toFixed(2);
       if (token) {
         console.log(`[API] hCaptcha solved in ${elapsed}s  token=${token.slice(0, 20)}...`);
+        recordSolve('hcaptcha', token?.slice(0, 20) || '—', parseFloat(elapsed), 'success');
         return { status: 'success', token, elapsed: parseFloat(elapsed) };
       }
+      recordSolve('hcaptcha', '—', parseFloat(elapsed), 'failed');
       return reply.code(500).send({ status: 'error', detail: 'All attempts failed to solve hCaptcha', elapsed: parseFloat(elapsed) });
     } catch (e) {
       const elapsed = ((Date.now() - t0) / 1000).toFixed(2);
       console.error(`[API] hCaptcha error after ${elapsed}s:`, e.message);
+      recordSolve('hcaptcha', '—', parseFloat(elapsed), 'failed');
       return reply.code(500).send({ status: 'error', detail: e.message, elapsed: parseFloat(elapsed) });
     }
   });

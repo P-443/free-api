@@ -654,10 +654,24 @@ const ts = await fetch(API + "/solve/turnstile", {
 <script>
 // ═════════════ STATE ═════════════
 let API_URL = localStorage.getItem('apiUrl') || '';
-let totalSolved = parseInt(localStorage.getItem('totalSolved') || '0');
-let solveTimes = JSON.parse(localStorage.getItem('solveTimes') || '[]');
-let history = JSON.parse(localStorage.getItem('history') || '[]');
+let totalSolved = 0;
+let solveTimes = [];
+let history = [];
 document.getElementById('apiUrl').value = API_URL;
+
+// ── Load stats from SERVER (shared across all devices) ──────
+async function loadStats() {
+  try {
+    const r = await fetch(apiUrl() + '/stats');
+    const d = await r.json();
+    totalSolved = d.totalSolved || 0;
+    solveTimes = d.solveTimes || [];
+    history = d.history || [];
+    document.getElementById('statTotal').textContent = totalSolved;
+    document.getElementById('statSpeed').textContent = d.avgSpeed ? d.avgSpeed + 's' : '—';
+    renderHistory();
+  } catch(e) { /* server may not have /stats yet */ }
+}
 
 // ═════════════ ICONS RENDER ═════════════
 lucide.createIcons();
@@ -778,20 +792,17 @@ async function quickSolve() {
       box.classList.add('show');
       el.textContent = `✅ Solved in ${elapsed}s`;
       el.style.display = 'block';
-      addHistory(type, token, elapsed, 'success');
-      totalSolved++; solveTimes.push(parseFloat(elapsed)); saveState();
+      loadStats();
       toast(`✅ ${type} solved in ${elapsed}s`, 'success');
     } else {
       el.textContent = '❌ All attempts failed';
       el.style.display = 'block';
-      addHistory(type, '—', elapsed, 'failed');
       toast('❌ Failed to solve', 'error');
     }
   } catch (e) {
     const elapsed = ((performance.now() - t0) / 1000).toFixed(2);
     el.textContent = `❌ ${e.message}`;
     el.style.display = 'block';
-    addHistory(type, '—', elapsed, 'error');
     toast('❌ ' + e.message, 'error');
   } finally {
     btn.disabled = false;
@@ -826,14 +837,12 @@ async function doSolveTurnstile(key, url, timeout = 45) {
       document.getElementById('tsTokenBox').classList.add('show');
       document.getElementById('tsElapsed').textContent = `✅ Solved in ${elapsed}s`;
       document.getElementById('tsElapsed').style.display = 'block';
-      addHistory('turnstile', token, elapsed, 'success');
-      totalSolved++; solveTimes.push(parseFloat(elapsed)); saveState();
+      loadStats();
       toast(`✅ Turnstile solved in ${elapsed}s`, 'success');
       return token;
     } else {
       document.getElementById('tsElapsed').textContent = '❌ Failed to solve';
       document.getElementById('tsElapsed').style.display = 'block';
-      addHistory('turnstile', '—', elapsed, 'failed');
       toast('❌ Failed to solve', 'error');
       return null;
     }
@@ -841,7 +850,6 @@ async function doSolveTurnstile(key, url, timeout = 45) {
     const elapsed = ((performance.now() - t0) / 1000).toFixed(2);
     document.getElementById('tsElapsed').textContent = `❌ ${e.message}`;
     document.getElementById('tsElapsed').style.display = 'block';
-    addHistory('turnstile', '—', elapsed, 'error');
     toast('❌ ' + e.message, 'error');
     return null;
   } finally {
@@ -898,8 +906,7 @@ async function getTurnstileFromPool() {
       document.getElementById('tsTokenBox').classList.add('show');
       document.getElementById('tsElapsed').textContent = '⚡ Pulled from pool (instant)';
       document.getElementById('tsElapsed').style.display = 'block';
-      addHistory('turnstile-pool', d.token, '0', 'success');
-      totalSolved++; saveState();
+      loadStats();
       toast('⚡ Turnstile token pulled from pool', 'success');
     } else { toast('❌ ' + d.detail, 'error'); }
   } catch (e) { toast('❌ ' + e.message, 'error'); }
@@ -934,14 +941,12 @@ async function doSolveHCaptcha(key, url) {
       document.getElementById('hcTokenBox').classList.add('show');
       document.getElementById('hcElapsed').textContent = `✅ Solved in ${elapsed}s`;
       document.getElementById('hcElapsed').style.display = 'block';
-      addHistory('hcaptcha', token, elapsed, 'success');
-      totalSolved++; solveTimes.push(parseFloat(elapsed)); saveState();
+      loadStats();
       toast(`✅ hCaptcha solved in ${elapsed}s`, 'success');
       return token;
     } else {
       document.getElementById('hcElapsed').textContent = '❌ Failed to solve';
       document.getElementById('hcElapsed').style.display = 'block';
-      addHistory('hcaptcha', '—', elapsed, 'failed');
       toast('❌ Failed to solve', 'error');
       return null;
     }
@@ -949,7 +954,6 @@ async function doSolveHCaptcha(key, url) {
     const elapsed = ((performance.now() - t0) / 1000).toFixed(2);
     document.getElementById('hcElapsed').textContent = `❌ ${e.message}`;
     document.getElementById('hcElapsed').style.display = 'block';
-    addHistory('hcaptcha', '—', elapsed, 'error');
     toast('❌ ' + e.message, 'error');
     return null;
   } finally {
@@ -972,8 +976,7 @@ async function getHCaptchaFromPool() {
       document.getElementById('hcTokenBox').classList.add('show');
       document.getElementById('hcElapsed').textContent = '⚡ Pulled from pool (instant)';
       document.getElementById('hcElapsed').style.display = 'block';
-      addHistory('hcaptcha-pool', d.token, '0', 'success');
-      totalSolved++; saveState();
+      loadStats();
       toast('⚡ hCaptcha token pulled from pool', 'success');
     } else { toast('❌ ' + d.detail, 'error'); }
   } catch (e) { toast('❌ ' + e.message, 'error'); }
@@ -1000,12 +1003,6 @@ async function refreshPool() {
 }
 
 // ═════════════ HISTORY ═════════════
-function addHistory(type, token, elapsed, status) {
-  history.unshift({ type, token: token === '—' ? '—' : token.slice(0, 40) + '...', elapsed, status, time: new Date().toLocaleTimeString() });
-  if (history.length > 50) history = history.slice(0, 50);
-  saveState();
-}
-
 function renderHistory() {
   const tbody = document.getElementById('historyTable');
   document.getElementById('historyCount').textContent = history.length + ' operations';
@@ -1016,14 +1013,15 @@ function renderHistory() {
   tbody.innerHTML = history.map((h, i) => `
     <tr>
       <td>${i + 1}</td>
-      <td><span class="badge ${h.type.includes('turnstile') ? 'badge-purple' : 'badge-success'}">${h.type}</span></td>
-      <td class="token-cell">${h.token}</td>
-      <td>${h.elapsed}s</td>
-      <td><span style="color:${h.status === 'success' ? 'var(--success)' : 'var(--danger)'}">${h.status}</span></td>
+      <td><span class="badge ${(h.type||'').includes('turnstile') ? 'badge-purple' : 'badge-success'}">${h.type||'solve'}</span></td>
+      <td class="token-cell">${h.token||'—'}</td>
+      <td>${h.elapsed||0}s</td>
+      <td><span style="color:${h.status === 'success' ? 'var(--success)' : 'var(--danger)'}">${h.status||'ok'}</span></td>
     </tr>`).join('');
 }
 
-function clearHistory() { history = []; saveState(); renderHistory(); toast('History cleared', 'success'); }
+// History is server-side — no client clear
+function clearHistory() { toast('History is server-managed', 'error'); }
 
 // ═════════════ UTILS ═════════════
 function copyToken(id) {
@@ -1044,14 +1042,11 @@ function updateStats() {
 }
 
 function saveState() {
-  localStorage.setItem('totalSolved', totalSolved);
-  localStorage.setItem('solveTimes', JSON.stringify(solveTimes.slice(-50)));
-  localStorage.setItem('history', JSON.stringify(history));
+  localStorage.setItem('apiUrl', API_URL); // Only API URL is per-device
 }
 
 // ═════════════ INIT ═════════════
-checkHealth().then(() => refreshDashboard());
-renderHistory();
+checkHealth().then(() => { refreshDashboard(); loadStats(); });
 
 setInterval(() => {
   if (document.getElementById('sec-dashboard').classList.contains('active')) refreshDashboard();
