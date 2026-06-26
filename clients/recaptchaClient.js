@@ -52,13 +52,12 @@ export async function solveReCaptcha(sitekey, pageurl, opts = {}) {
   const page = await context.newPage();
 
   try {
-    // Load the target site homepage (establishes origin for reCAPTCHA)
-    // Only load the main page — no sub-pages or session URLs needed
-    const mainUrl = new URL(pageurl).origin;
-    console.log(`[reCAPTCHA] Loading homepage: ${mainUrl}`);
-    await page.goto(mainUrl, { waitUntil: 'domcontentloaded', timeout: 20000 });
-    await page.waitForTimeout(1000);
-    console.log(`[reCAPTCHA] Page loaded, injecting reCAPTCHA...`);
+    // Load the target page (checkout URL) to match the Referer context
+    // The captcha MUST be generated on the same page where payment is submitted
+    console.log(`[reCAPTCHA] Loading target page: ${pageurl.slice(0, 80)}...`);
+    await page.goto(pageurl, { waitUntil: 'domcontentloaded', timeout: 25000 });
+    await page.waitForTimeout(2000);
+    console.log(`[reCAPTCHA] Target page loaded, injecting reCAPTCHA...`);
 
     // Inject reCAPTCHA and execute — same exact logic as local Selenium
     const token = await page.evaluate(({ sitekey, timeout }) => {
