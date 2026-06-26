@@ -275,12 +275,21 @@ export async function buildServer() {
       if (result.error) {
         console.error(`[API] reCAPTCHA error after ${elapsed}s:`, result.error);
         recordSolve('recaptcha', '—', parseFloat(elapsed), 'failed');
-        return reply.code(500).send({ status: 'error', detail: result.error, elapsed: parseFloat(elapsed) });
+        return reply.code(500).send({
+          status: 'error', detail: result.error, elapsed: parseFloat(elapsed),
+          proxy: proxy ? `${proxy.slice(0, 30)}...` : 'none',
+          proxyUsed: !!proxy,
+        });
       }
 
-      console.log(`[API] reCAPTCHA solved in ${elapsed}s`);
+      console.log(`[API] reCAPTCHA solved in ${elapsed}s token=${result.token?.slice(0, 20)}... proxy=${!!proxy}`);
       recordSolve('recaptcha', result.token?.slice(0, 20) || '—', parseFloat(elapsed), 'success');
-      return { status: 'success', token: result.token, elapsed: parseFloat(elapsed) };
+      return {
+        status: 'success', token: result.token, elapsed: parseFloat(elapsed),
+        proxy: proxy ? `${proxy.slice(0, 30)}...` : 'none',
+        proxyUsed: !!proxy,
+        tokenLen: result.token?.length || 0,
+      };
     } catch (e) {
       const elapsed = ((Date.now() - t0) / 1000).toFixed(2);
       console.error(`[API] reCAPTCHA error after ${elapsed}s:`, e.message);
