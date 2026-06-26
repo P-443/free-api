@@ -78,8 +78,8 @@ export function buildDocsHTML(poolSize, host) {
 <span style="color:var(--success)"># 200 OK</span>
 {"status":"success","token":"0cAFcWeA...","elapsed":4.5,"tokenLen":2084}
 
-<span style="color:var(--text2)"># With proxy tunnel (same IP as payment):</span>
-{"sitekey":"...","siteurl":"...","proxy":"http://72.62.212.120:19888"}
+<span style="color:var(--text2)"># With proxy (same-IP tunnel):</span>
+{"sitekey":"...","siteurl":"...","proxy":"http://your-ip:port"}
 
 <span style="color:var(--text2)"># Uses real Chrome (non-headless) via Xvfb</span>
 <span style="color:var(--text2)"># Best Google reCAPTCHA scores</span></pre></div>

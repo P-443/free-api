@@ -100,8 +100,9 @@ export async function buildServer() {
           '/health': 'GET — Service health & pool status',
           '/solve/turnstile': 'POST — Solve Cloudflare Turnstile (direct)',
           '/solve/hcaptcha': 'POST — Solve hCaptcha (direct, with optional proxy)',
-          '/get-hcaptcha-token': 'GET — Get pre-solved hCaptcha token from Redis pool',
-          '/get-turnstile-token': 'GET — Get pre-solved Turnstile token from Redis pool',
+          '/solve/recaptcha': 'POST — Solve reCAPTCHA v2 (direct, optional proxy) [NEW]',
+          '/get-hcaptcha-token': 'GET — Pre-solved hCaptcha token from Redis pool',
+          '/get-turnstile-token': 'GET — Pre-solved Turnstile token from Redis pool',
         },
         pool: { enabled: !!redis, hcaptcha_size: poolSize },
       };
