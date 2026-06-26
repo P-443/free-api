@@ -21,6 +21,7 @@ RUN pip install -r python_solver/requirements.txt
 COPY python_solver/ ./python_solver/
 
 # ── Node.js deps ─────────────────────────────────────────────
+ENV PUPPETEER_SKIP_DOWNLOAD=true
 COPY package.json .
 RUN npm install
 
