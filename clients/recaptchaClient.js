@@ -3,7 +3,7 @@
 //  Different browser profile every time = Google can't track
 // ═══════════════════════════════════════════════════════════
 
-import { chromium } from 'playwright';
+import { chromium } from 'rebrowser-playwright';  // Patched: blocks Runtime.enable CDP leak
 
 export async function solveReCaptcha(sitekey, pageurl, opts = {}) {
   const { timeout = 60, proxy } = opts;
@@ -114,10 +114,18 @@ export async function solveReCaptcha(sitekey, pageurl, opts = {}) {
     }, { sitekey, timeout });
 
     const elapsed = ((Date.now() - start) / 1000).toFixed(2);
-    if (token && token.length > 100) {
-      console.log(`[reCAPTCHA] Solved! len=${token.length} elapsed=${elapsed}s`);
-      return { token, elapsed };
+
+    // Quality check: only return high-quality tokens
+    if (token && token.length > 1500 && token.startsWith('0cAFcWeA')) {
+      console.log(`[reCAPTCHA] SOLVED quality=HIGH len=${token.length} elapsed=${elapsed}s`);
+      return { token, elapsed, quality: 'high' };
     }
+
+    if (token && token.length > 500) {
+      console.log(`[reCAPTCHA] Solved len=${token.length} elapsed=${elapsed}s quality=low`);
+      return { token, elapsed, quality: 'low' };
+    }
+
     return { token: null, error: 'no_token', elapsed };
   } catch(e) {
     return { token: null, error: e.message, elapsed: ((Date.now() - start) / 1000).toFixed(2) };

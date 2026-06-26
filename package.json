@@ -11,6 +11,7 @@
     "fastify": "^5.0.0",
     "ioredis": "^5.4.0",
     "playwright": "^1.61.0",
-    "playwright-extra": "^4.3.6"
+    "playwright-extra": "^4.3.6",
+    "rebrowser-playwright": "^1.52.0"
   }
 }
