@@ -1,91 +1,92 @@
 // ═══════════════════════════════════════════════════════════
-//  reCAPTCHA v2 Client — about:blank injection (no page load)
-//  Same approach as working local Selenium: load blank page,
-//  inject reCAPTCHA API + render widget + execute = token.
+//  reCAPTCHA v2 Client — REAL Chrome (not Chromium)
+//  Exact same approach as working local Selenium:
+//  - System Chrome browser (channel: 'chrome')
+//  - Persistent profile (looks like real user)
+//  - about:blank page injection
+//  - Full anti-detection matching undetected-chromedriver
 // ═══════════════════════════════════════════════════════════
 
 import { chromium } from 'playwright';
+import { existsSync, mkdirSync } from 'fs';
+import { join } from 'path';
+import { homedir } from 'os';
+
+const PROFILE_DIR = join(homedir(), '.recaptcha-chrome-profile');
 
 export async function solveReCaptcha(sitekey, pageurl, opts = {}) {
-  const { timeout = 60, headless = true, proxy } = opts;
+  const { timeout = 60, proxy } = opts;
   const start = Date.now();
 
-  const launchOpts = {
-    headless,
+  // Ensure persistent profile directory exists
+  if (!existsSync(PROFILE_DIR)) {
+    mkdirSync(PROFILE_DIR, { recursive: true });
+  }
+
+  // Launch REAL Chrome (not Playwright's bundled Chromium)
+  const browser = await chromium.launchPersistentContext(PROFILE_DIR, {
+    // Use system Chrome for authentic fingerprint
+    channel: 'chrome',
+    headless: true,  // Xvfb handles display on Linux
     args: [
       '--disable-blink-features=AutomationControlled',
-      '--disable-features=IsolateOrigins,site-per-process',
+      '--disable-features=IsolateOrigins',
       '--no-sandbox',
       '--disable-setuid-sandbox',
       '--disable-dev-shm-usage',
       '--disable-gpu',
       '--disable-software-rasterizer',
+      '--no-first-run',
+      '--no-default-browser-check',
+      '--password-store=basic',
+      '--use-mock-keychain',
     ],
-  };
-  if (proxy) {
-    try {
-      const url = new URL(proxy);
-      launchOpts.proxy = {
-        server: `${url.protocol}//${url.hostname}:${url.port || '80'}`,
-        username: decodeURIComponent(url.username || ''),
-        password: decodeURIComponent(url.password || ''),
-      };
-    } catch(e) {
-      launchOpts.proxy = { server: proxy };
-    }
-  }
-
-  const browser = await chromium.launch(launchOpts);
-  const context = await browser.newContext({
     userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36',
     viewport: { width: 1440, height: 900 },
+    // Bypass automation flags — same as Selenium undetected-chromedriver
+    bypassCSP: true,
   });
 
-  // Full anti-detection — makes Playwright look like real Chrome
-  await context.addInitScript(() => {
-    // Kill webdriver flag
-    Object.defineProperty(navigator, 'webdriver', { get: () => false });
-    // Realistic plugins
-    Object.defineProperty(navigator, 'plugins', { get: () => [
-      { name: 'Chrome PDF Plugin', filename: 'internal-pdf-viewer', description: 'Portable Document Format' },
-      { name: 'Chrome PDF Viewer', filename: 'mhjfbmdgcfjbbpaeojofohoefgiehjai', description: '' },
-      { name: 'Native Client', filename: 'internal-nacl-plugin', description: '' },
-    ]});
-    // Real chrome object
-    window.chrome = {
-      runtime: { onConnect: { addListener: () => {} }, onMessage: { addListener: () => {} } },
-      loadTimes: () => {},
-      csi: () => {},
-      app: {},
-    };
-    // Languages
-    Object.defineProperty(navigator, 'languages', { get: () => ['en-US', 'en'] });
-    Object.defineProperty(navigator, 'language', { get: () => 'en-US' });
-    // Platform
-    Object.defineProperty(navigator, 'platform', { get: () => 'Win32' });
-    // Hardware
-    Object.defineProperty(navigator, 'hardwareConcurrency', { get: () => 8 });
-    Object.defineProperty(navigator, 'deviceMemory', { get: () => 8 });
-    // Permissions
-    const origQuery = window.navigator.permissions.query;
-    window.navigator.permissions.query = (params) => (
-      params.name === 'notifications' ?
-      Promise.resolve({ state: Notification.permission }) :
-      origQuery(params)
-    );
-  });
-
+  const context = browser; // launchPersistentContext returns the context directly
   const page = await context.newPage();
 
-  try {
-    // Load the target page (checkout URL) to match the Referer context
-    // The captcha MUST be generated on the same page where payment is submitted
-    console.log(`[reCAPTCHA] Loading target page: ${pageurl.slice(0, 80)}...`);
-    await page.goto(pageurl, { waitUntil: 'domcontentloaded', timeout: 25000 });
-    await page.waitForTimeout(2000);
-    console.log(`[reCAPTCHA] Target page loaded, injecting reCAPTCHA...`);
+  // Full anti-detection matching undetected-chromedriver
+  await page.addInitScript(() => {
+    // Kill webdriver
+    Object.defineProperty(navigator, 'webdriver', { get: () => false });
+    // Realistic plugins (matching real Chrome)
+    Object.defineProperty(navigator, 'plugins', {
+      get: () => Object.assign([1,2,3,4,5], {
+        item: () => null, namedItem: () => null, refresh: () => {},
+      })
+    });
+    // Chrome runtime
+    if (!window.chrome) {
+      window.chrome = {
+        runtime: {},
+        loadTimes: function() {},
+        csi: function() {},
+        app: {},
+      };
+    }
+    // Languages
+    Object.defineProperty(navigator, 'languages', { get: () => ['en-US', 'en'] });
+    // Permissions
+    const originalQuery = navigator.permissions.query.bind(navigator.permissions);
+    navigator.permissions.query = (params) =>
+      params.name === 'notifications' ?
+        Promise.resolve({state: Notification.permission}) :
+        originalQuery(params);
+    // Hardware
+    Object.defineProperty(navigator, 'hardwareConcurrency', { get: () => 8 });
+  });
 
-    // Inject reCAPTCHA and execute — same exact logic as local Selenium
+  try {
+    // Same approach as working card_checker_auto.py:
+    // Load about:blank, inject reCAPTCHA, solve
+    await page.goto('about:blank');
+    console.log(`[reCAPTCHA] Real Chrome ready, injecting reCAPTCHA...`);
+
     const token = await page.evaluate(({ sitekey, timeout }) => {
       return new Promise((resolve) => {
         function doRender() {
@@ -94,7 +95,7 @@ export async function solveReCaptcha(sitekey, pageurl, opts = {}) {
           document.body.appendChild(c);
           try {
             grecaptcha.render(c, {
-              sitekey: sitekey,
+              sitekey,
               size: 'invisible',
               callback: (t) => resolve(t),
               'expired-callback': () => resolve(''),
