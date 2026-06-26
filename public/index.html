@@ -326,6 +326,9 @@ tr:hover td { background: rgba(255,255,255,0.015); }
       <div class="nav-item" data-section="hcaptcha">
         <i data-lucide="lock-keyhole"></i> hCaptcha Solver
       </div>
+      <div class="nav-item" data-section="recaptcha">
+        <i data-lucide="shield-check"></i> reCAPTCHA Solver <span style="color:var(--warning);font-size:0.7rem;margin-left:4px;">NEW</span>
+      </div>
       <div class="sidebar-section" style="margin-top:8px">System</div>
       <div class="nav-item" data-section="pool">
         <i data-lucide="database"></i> Token Pool
@@ -409,6 +412,7 @@ tr:hover td { background: rgba(255,255,255,0.015); }
             <select id="quickType">
               <option value="turnstile">Cloudflare Turnstile</option>
               <option value="hcaptcha">hCaptcha</option>
+              <option value="recaptcha">reCAPTCHA v2</option>
             </select>
           </div>
           <div class="form-group">
@@ -520,6 +524,45 @@ tr:hover td { background: rgba(255,255,255,0.015); }
           <span id="hcTokenText"></span>
         </div>
         <div id="hcElapsed" style="margin-top:8px;font-size:0.76rem;color:var(--text2);display:none;"></div>
+      </div>
+    </section>
+
+    <!-- ═══════════ RECAPTCHA ═══════════ -->
+    <section class="section" id="sec-recaptcha">
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <div class="card-title"><i data-lucide="shield-check"></i> reCAPTCHA v2 Solver <span style="color:var(--warning);font-size:0.8rem;margin-left:6px;">NEW</span></div>
+            <div class="card-subtitle">Uses real Chrome (non-headless via Xvfb) — best Google scores. Optional proxy for same-IP tunnel.</div>
+          </div>
+        </div>
+        <div style="display:grid;gap:12px">
+          <div class="form-group">
+            <label>Site Key</label>
+            <input class="input" id="recapKey" value="6LfjFyMpAAAAAHt55K-tnVieeAK-O3sNLO44VvlV">
+          </div>
+          <div class="form-group">
+            <label>Site URL</label>
+            <input class="input" id="recapUrl" value="https://commerce.cashnet.com/fscgiving">
+          </div>
+          <div class="form-group">
+            <label>Proxy (optional)</label>
+            <input class="input" id="recapProxy" placeholder="http://user:pass@host:port">
+          </div>
+          <div>
+            <button class="btn btn-primary" onclick="solveReCaptcha()" id="recapSolveBtn">
+              <i data-lucide="unlock"></i> Solve reCAPTCHA
+            </button>
+          </div>
+        </div>
+        <div class="token-box" id="recapTokenBox">
+          <button class="copy-btn" onclick="copyToken('recapTokenText')"><i data-lucide="copy"></i> Copy</button>
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+            <span style="font-size:0.7rem;color:var(--text2)">Token:</span>
+            <code id="recapTokenText" style="font-size:0.75rem;color:var(--success)">—</code>
+            <span id="recapStats" style="font-size:0.68rem;color:var(--text2)"></span>
+          </div>
+        </div>
       </div>
     </section>
 
@@ -983,6 +1026,45 @@ async function getHCaptchaFromPool() {
   finally {
     btn.disabled = false;
     btn.innerHTML = '<i data-lucide="download"></i> Pull from Pool';
+    lucide.createIcons();
+    updateStats();
+  }
+}
+
+// ═════════════ RECAPTCHA ═════════════
+async function solveReCaptcha() {
+  const key = document.getElementById('recapKey').value.trim();
+  const url = document.getElementById('recapUrl').value.trim();
+  const proxy = document.getElementById('recapProxy').value.trim();
+  if (!key || !url) { toast('Site key and URL are required', 'error'); return; }
+  await doSolveReCaptcha(key, url, proxy);
+}
+
+async function doSolveReCaptcha(key, url, proxy) {
+  const btn = document.getElementById('recapSolveBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<div class="spinner"></div> Solving...';
+  const t0 = Date.now();
+  try {
+    const body = { sitekey: key, siteurl: url };
+    if (proxy) body.proxy = proxy;
+    const r = await fetch(apiUrl() + '/solve/recaptcha', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body) });
+    const d = await r.json();
+    if (d.status === 'success') {
+      document.getElementById('recapTokenText').textContent = d.token;
+      document.getElementById('recapTokenBox').classList.add('show');
+      const elapsed = ((Date.now() - t0) / 1000).toFixed(1);
+      document.getElementById('recapStats').textContent = `len=${d.token?.length||0} | ${elapsed}s | proxy=${!!proxy}`;
+      loadStats();
+      toast(`✅ reCAPTCHA solved in ${elapsed}s`, 'success');
+    } else {
+      document.getElementById('recapStats').textContent = d.detail || 'failed';
+      toast('❌ ' + (d.detail || 'Failed'), 'error');
+    }
+  } catch (e) { toast('❌ ' + e.message, 'error'); }
+  finally {
+    btn.disabled = false;
+    btn.innerHTML = '<i data-lucide="unlock"></i> Solve reCAPTCHA';
     lucide.createIcons();
     updateStats();
   }
