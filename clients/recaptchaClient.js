@@ -1,126 +1,58 @@
 // ═══════════════════════════════════════════════════════════
-//  reCAPTCHA v2 — max stealth via CDP + full fingerprint spoof
+//  reCAPTCHA v2 — random fingerprint each solve
+//  Different browser profile every time = Google can't track
 // ═══════════════════════════════════════════════════════════
 
 import { chromium } from 'playwright';
-import { spawn } from 'child_process';
-
-async function launchStealthBrowser(proxy) {
-  // Launch real Chrome via CDP for maximum stealth
-  const chromePath = '/usr/bin/google-chrome-stable';
-  const args = [
-    '--remote-debugging-port=0',
-    '--disable-blink-features=AutomationControlled',
-    '--disable-features=IsolateOrigins',
-    '--no-sandbox', '--disable-setuid-sandbox',
-    '--disable-dev-shm-usage', '--disable-gpu',
-    '--no-first-run', '--no-default-browser-check',
-    '--password-store=basic',
-    '--window-size=1440,900',
-    '--disable-background-networking',
-    '--disable-sync',
-    '--disable-translate',
-    '--disable-extensions',
-    'about:blank',
-  ];
-
-  if (proxy) {
-    try {
-      const url = new URL(proxy);
-      args.push(`--proxy-server=${url.hostname}:${url.port || '80'}`);
-    } catch(e) {
-      args.push(`--proxy-server=${proxy}`);
-    }
-  }
-
-  // Launch Chrome and get CDP port
-  return new Promise((resolve, reject) => {
-    const proc = spawn(chromePath, args, {
-      stdio: ['ignore', 'pipe', 'pipe'],
-      env: { ...process.env, DISPLAY: process.env.DISPLAY || ':99' },
-    });
-
-    let cdpPort = null;
-    const timeout = setTimeout(() => {
-      if (!cdpPort) reject(new Error('Chrome launch timeout'));
-    }, 15000);
-
-    proc.stderr.on('data', (data) => {
-      const text = data.toString();
-      const match = text.match(/DevTools listening on ws:\/\/[^:]+:(\d+)/);
-      if (match) {
-        cdpPort = parseInt(match[1]);
-        clearTimeout(timeout);
-        resolve(cdpPort);
-      }
-    });
-
-    proc.on('error', (e) => {
-      clearTimeout(timeout);
-      reject(e);
-    });
-
-    proc.on('exit', () => {
-      clearTimeout(timeout);
-      if (!cdpPort) reject(new Error('Chrome exited without CDP'));
-    });
-  });
-}
 
 export async function solveReCaptcha(sitekey, pageurl, opts = {}) {
   const { timeout = 60, proxy } = opts;
   const start = Date.now();
 
-  let browser;
-  try {
-    // Try CDP-launched real Chrome first
-    console.log('[reCAPTCHA] Launching real Chrome via CDP...');
-    const cdpPort = await launchStealthBrowser(proxy);
-    browser = await chromium.connectOverCDP(`http://127.0.0.1:${cdpPort}`);
-    console.log('[reCAPTCHA] Connected via CDP — max stealth');
-  } catch(e) {
-    // Fallback to Playwright Chromium
-    console.log('[reCAPTCHA] CDP failed, using Playwright Chromium:', e.message);
-    const launchOpts = {
-      headless: false,
-      args: [
-        '--disable-blink-features=AutomationControlled',
-        '--disable-features=IsolateOrigins',
-        '--no-sandbox', '--disable-setuid-sandbox',
-        '--disable-dev-shm-usage', '--disable-gpu',
-        '--disable-software-rasterizer',
-      ],
-    };
-    if (proxy) {
-      try {
-        const url = new URL(proxy);
-        launchOpts.proxy = {
-          server: `${url.protocol}//${url.hostname}:${url.port || '80'}`,
-          username: decodeURIComponent(url.username || ''),
-          password: decodeURIComponent(url.password || ''),
-        };
-      } catch(e) {
-        launchOpts.proxy = { server: proxy };
-      }
+  // Random fingerprint per solve
+  const fp = {
+    platform: ['Win32','Win32','Win32','MacIntel','Linux x86_64'][Math.floor(Math.random()*5)],
+    cores: [4,4,8,8,8,12,16][Math.floor(Math.random()*7)],
+    memory: [4,8,8,8,16,32][Math.floor(Math.random()*6)],
+    lang: [['en-US','en'],['en-US','en'],['en-US','en'],['en-GB','en']][Math.floor(Math.random()*4)],
+    gpuV: ['Google Inc.','Google Inc.','Google Inc.','Intel Inc.','AMD'][Math.floor(Math.random()*5)],
+    gpuR: ['ANGLE (Google, Vulkan 1.3.0)','ANGLE (Intel, Vulkan)','ANGLE (AMD, Vulkan)'][Math.floor(Math.random()*3)],
+  };
+  const vpW = [1366,1440,1440,1536,1920,1920][Math.floor(Math.random()*6)];
+  const vpH = [768,900,900,864,1080,1080][Math.floor(Math.random()*6)];
+  console.log(`[reCAPTCHA] FP: ${fp.platform} ${vpW}x${vpH} cores=${fp.cores}`);
+
+  const launchOpts = {
+    headless: false,
+    args: [
+      '--disable-blink-features=AutomationControlled',
+      '--disable-features=IsolateOrigins',
+      '--no-sandbox','--disable-setuid-sandbox',
+      '--disable-dev-shm-usage','--disable-gpu',
+      '--disable-software-rasterizer',
+    ],
+  };
+
+  if (proxy) {
+    try {
+      const url = new URL(proxy);
+      launchOpts.proxy = {
+        server: `${url.protocol}//${url.hostname}:${url.port||'80'}`,
+        username: decodeURIComponent(url.username||''),
+        password: decodeURIComponent(url.password||''),
+      };
+    } catch(e) {
+      launchOpts.proxy = { server: proxy };
     }
-    browser = await chromium.launch(launchOpts);
   }
 
-  // Random viewport
-  const vpW = [1366, 1440, 1440, 1536, 1920, 1920, 2560][Math.floor(Math.random() * 7)];
-  const vpH = [768, 900, 900, 864, 1080, 1080, 1440][Math.floor(Math.random() * 7)];
-  await page.setViewportSize({ width: vpW, height: vpH });
+  const browser = await chromium.launch(launchOpts);
+  const context = await browser.newContext({
+    userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36',
+    viewport: { width: vpW, height: vpH },
+  });
 
-  // Random fingerprint for each solve
-  const fp = {
-    platform: ['Win32', 'Win32', 'Win32', 'MacIntel', 'Linux x86_64'][Math.floor(Math.random() * 5)],
-    cores: [4, 4, 8, 8, 8, 12, 16][Math.floor(Math.random() * 7)],
-    memory: [4, 8, 8, 8, 16, 32][Math.floor(Math.random() * 6)],
-    lang: [['en-US','en'], ['en-US','en'], ['en-US','en'], ['en-GB','en'], ['de-DE','de','en']][Math.floor(Math.random() * 5)],
-    gpuVendor: ['Google Inc.', 'Google Inc.', 'Google Inc.', 'Intel Inc.', 'AMD'][Math.floor(Math.random() * 5)],
-    gpuRenderer: ['ANGLE (Google, Vulkan 1.3.0)', 'ANGLE (Intel, Vulkan)', 'ANGLE (AMD, Vulkan)'][Math.floor(Math.random() * 3)],
-  };
-  console.log(`[reCAPTCHA] FP: ${fp.platform} ${vpW}x${vpH} cores=${fp.cores} gpu=${fp.gpuVendor.split(' ')[0]}`);
+  const page = await context.newPage();
 
   await page.addInitScript((fp) => {
     Object.defineProperty(navigator, 'webdriver', { get: () => false });
@@ -139,11 +71,11 @@ export async function solveReCaptcha(sitekey, pageurl, opts = {}) {
     const origQ = navigator.permissions.query;
     navigator.permissions.query = p => p.name === 'notifications' ? Promise.resolve({ state: 'prompt' }) : origQ(p);
     try {
-      const getParam = WebGLRenderingContext.prototype.getParameter;
+      const gp = WebGLRenderingContext.prototype.getParameter;
       WebGLRenderingContext.prototype.getParameter = function(p) {
-        if (p === 37445) return fp.gpuVendor;
-        if (p === 37446) return fp.gpuRenderer;
-        return getParam.call(this, p);
+        if (p === 37445) return fp.gpuV;
+        if (p === 37446) return fp.gpuR;
+        return gp.call(this, p);
       };
     } catch(e) {}
   }, fp);
@@ -161,8 +93,7 @@ export async function solveReCaptcha(sitekey, pageurl, opts = {}) {
           c.style.display = 'none';
           document.body.appendChild(c);
           try {
-            grecaptcha.render(c, {
-              sitekey, size: 'invisible',
+            grecaptcha.render(c, { sitekey, size:'invisible',
               callback: t => resolve(t),
               'expired-callback': () => resolve(''),
               'error-callback': () => resolve(''),
