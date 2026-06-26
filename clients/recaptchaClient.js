@@ -56,11 +56,8 @@ export async function solveReCaptcha(sitekey, pageurl, opts = {}) {
     // Load homepage first (provides valid origin)
     const origin = new URL(pageurl).origin;
     console.log(`[reCAPTCHA] Loading homepage: ${origin}...`);
-    await page.goto(origin, { waitUntil: 'domcontentloaded', timeout: 20000 });
-    // Human-like delay (random 1-3 seconds)
-    await page.waitForTimeout(1000 + Math.random() * 2000);
-    // Simulate tiny mouse movement
-    await page.mouse.move(100 + Math.random() * 500, 100 + Math.random() * 300);
+    await page.goto(origin, { waitUntil: 'load', timeout: 20000 });
+    await page.waitForTimeout(2000);
     console.log(`[reCAPTCHA] Homepage loaded, injecting reCAPTCHA...`);
 
     // Inject reCAPTCHA and execute — same exact logic as local Selenium
@@ -78,8 +75,7 @@ export async function solveReCaptcha(sitekey, pageurl, opts = {}) {
               'expired-callback': () => resolve(''),
               'error-callback': () => resolve(''),
             });
-            // Small human-like delay before execute
-            setTimeout(() => grecaptcha.execute(), 200 + Math.random() * 500);
+            grecaptcha.execute();
           } catch(e) {
             resolve('');
           }
