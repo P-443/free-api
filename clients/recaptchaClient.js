@@ -55,23 +55,39 @@ export async function solveReCaptcha(sitekey, pageurl, opts = {}) {
     Object.defineProperty(navigator, 'plugins', { get: () => [1, 2, 3, 4, 5] });
   });
 
+  // CRITICAL: Set cookies BEFORE any navigation so browser session matches Python session
+  if (cookies && sessionUrl) {
+    try {
+      const cookieList = typeof cookies === 'string' ? JSON.parse(cookies) : cookies;
+      const domain = new URL(sessionUrl).hostname;
+      const cookieArray = Object.entries(cookieList).map(([name, value]) => ({
+        name, value: String(value), domain, path: '/',
+        httpOnly: false, secure: true, sameSite: 'Lax',
+      }));
+      await context.addCookies(cookieArray);
+      console.log(`[reCAPTCHA] Set ${cookieArray.length} cookies for ${domain}`);
+    } catch(e) {
+      console.log(`[reCAPTCHA] Cookie set error: ${e.message}`);
+    }
+  }
+
   const page = await context.newPage();
   const start = Date.now();
 
   try {
-    // Step 1: Load login page with session token to establish browser session
+    // Step 1: Load login page with session token using our cookies
     if (sessionUrl) {
-      console.log(`[reCAPTCHA] Loading session: ${sessionUrl.slice(0, 80)}...`);
-      await page.goto(sessionUrl, { waitUntil: 'networkidle', timeout: 30000 });
+      console.log(`[reCAPTCHA] Loading session with cookies...`);
+      await page.goto(sessionUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
       await page.waitForTimeout(3000);
       console.log('[reCAPTCHA] Session page loaded');
     }
 
-    // Step 2: Navigate to target page (checkout) — same browser context
-    console.log(`[reCAPTCHA] Navigating to: ${pageurl.slice(0, 80)}...`);
-    await page.goto(pageurl, { waitUntil: 'networkidle', timeout: 30000 });
+    // Step 2: Navigate to checkout at correct URL
+    console.log(`[reCAPTCHA] Loading checkout...`);
+    await page.goto(pageurl, { waitUntil: 'domcontentloaded', timeout: 30000 });
     await page.waitForTimeout(3000);
-    console.log('[reCAPTCHA] Target page loaded');
+    console.log('[reCAPTCHA] Checkout page loaded');
 
     // Inject reCAPTCHA API + render widget + get token
     const token = await page.evaluate((sk) => {
