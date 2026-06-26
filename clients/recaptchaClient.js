@@ -53,11 +53,14 @@ export async function solveReCaptcha(sitekey, pageurl, opts = {}) {
   const page = await context.newPage();
 
   try {
-    // Load homepage first (provides valid origin) — same as working local Selenium
+    // Load homepage first (provides valid origin)
     const origin = new URL(pageurl).origin;
     console.log(`[reCAPTCHA] Loading homepage: ${origin}...`);
     await page.goto(origin, { waitUntil: 'domcontentloaded', timeout: 20000 });
-    await page.waitForTimeout(1000);
+    // Human-like delay (random 1-3 seconds)
+    await page.waitForTimeout(1000 + Math.random() * 2000);
+    // Simulate tiny mouse movement
+    await page.mouse.move(100 + Math.random() * 500, 100 + Math.random() * 300);
     console.log(`[reCAPTCHA] Homepage loaded, injecting reCAPTCHA...`);
 
     // Inject reCAPTCHA and execute — same exact logic as local Selenium
@@ -75,7 +78,8 @@ export async function solveReCaptcha(sitekey, pageurl, opts = {}) {
               'expired-callback': () => resolve(''),
               'error-callback': () => resolve(''),
             });
-            grecaptcha.execute();
+            // Small human-like delay before execute
+            setTimeout(() => grecaptcha.execute(), 200 + Math.random() * 500);
           } catch(e) {
             resolve('');
           }
