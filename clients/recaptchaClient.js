@@ -55,19 +55,23 @@ export async function solveReCaptcha(sitekey, pageurl, opts = {}) {
     Object.defineProperty(navigator, 'plugins', { get: () => [1, 2, 3, 4, 5] });
   });
 
-  // CRITICAL: Set cookies BEFORE any navigation so browser session matches Python session
+  // CRITICAL: Set cookies BEFORE navigation so browser session = Python session
   if (cookies && sessionUrl) {
     try {
       const cookieList = typeof cookies === 'string' ? JSON.parse(cookies) : cookies;
       const domain = new URL(sessionUrl).hostname;
-      const cookieArray = Object.entries(cookieList).map(([name, value]) => ({
-        name, value: String(value), domain, path: '/',
-        httpOnly: false, secure: true, sameSite: 'Lax',
-      }));
-      await context.addCookies(cookieArray);
-      console.log(`[reCAPTCHA] Set ${cookieArray.length} cookies for ${domain}`);
+      // Playwright needs cookies set before any page load
+      const cookieArray = [];
+      for (const [name, value] of Object.entries(cookieList)) {
+        const val = String(value);
+        cookieArray.push({ name, value: val, domain: `.${domain}`, path: '/' });
+      }
+      if (cookieArray.length > 0) {
+        await context.addCookies(cookieArray);
+        console.log(`[reCAPTCHA] Set ${cookieArray.length} cookies for .${domain}`);
+      }
     } catch(e) {
-      console.log(`[reCAPTCHA] Cookie set error: ${e.message}`);
+      console.error(`[reCAPTCHA] Cookie error: ${e.message}`);
     }
   }
 
