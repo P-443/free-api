@@ -3,7 +3,7 @@
 //  Different browser profile every time = Google can't track
 // ═══════════════════════════════════════════════════════════
 
-import { chromium } from 'rebrowser-playwright';  // Patched: blocks Runtime.enable CDP leak
+import { chromium } from 'playwright';
 
 export async function solveReCaptcha(sitekey, pageurl, opts = {}) {
   const { timeout = 60, proxy } = opts;
