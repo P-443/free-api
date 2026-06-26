@@ -1,27 +1,31 @@
 // ═══════════════════════════════════════════════════════════
-//  reCAPTCHA v2 Client — about:blank injection (no page load)
-//  Same approach as working local Selenium: load blank page,
-//  inject reCAPTCHA API + render widget + execute = token.
+//  reCAPTCHA v2 Client — Real Chrome + about:blank injection
+//  Exact same as working local Selenium approach.
+//  Dockerfile installs Google Chrome stable → channel: 'chrome'
 // ═══════════════════════════════════════════════════════════
 
 import { chromium } from 'playwright';
 
 export async function solveReCaptcha(sitekey, pageurl, opts = {}) {
-  const { timeout = 60, headless = true, proxy } = opts;
+  const { timeout = 60, proxy } = opts;
   const start = Date.now();
 
   const launchOpts = {
-    headless,
+    headless: true,
+    channel: 'chrome',  // Use REAL Chrome from Dockerfile (not Playwright Chromium)
     args: [
       '--disable-blink-features=AutomationControlled',
-      '--disable-features=IsolateOrigins,site-per-process',
+      '--disable-features=IsolateOrigins',
       '--no-sandbox',
       '--disable-setuid-sandbox',
       '--disable-dev-shm-usage',
       '--disable-gpu',
       '--disable-software-rasterizer',
+      '--no-first-run',
+      '--no-default-browser-check',
     ],
   };
+
   if (proxy) {
     try {
       const url = new URL(proxy);
@@ -41,7 +45,6 @@ export async function solveReCaptcha(sitekey, pageurl, opts = {}) {
     viewport: { width: 1440, height: 900 },
   });
 
-  // Full anti-detection
   await context.addInitScript(() => {
     Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
     Object.defineProperty(navigator, 'plugins', { get: () => [1,2,3,4,5] });
@@ -52,14 +55,11 @@ export async function solveReCaptcha(sitekey, pageurl, opts = {}) {
   const page = await context.newPage();
 
   try {
-    // Load the target page (checkout URL) to match the Referer context
-    // The captcha MUST be generated on the same page where payment is submitted
-    console.log(`[reCAPTCHA] Loading target page: ${pageurl.slice(0, 80)}...`);
-    await page.goto(pageurl, { waitUntil: 'domcontentloaded', timeout: 25000 });
-    await page.waitForTimeout(2000);
-    console.log(`[reCAPTCHA] Target page loaded, injecting reCAPTCHA...`);
+    // Exact same approach as card_checker_auto.py:
+    // Load about:blank, inject reCAPTCHA API, render widget, execute
+    await page.goto('about:blank');
+    console.log(`[reCAPTCHA] Real Chrome on about:blank, injecting widget...`);
 
-    // Inject reCAPTCHA and execute — same exact logic as local Selenium
     const token = await page.evaluate(({ sitekey, timeout }) => {
       return new Promise((resolve) => {
         function doRender() {
@@ -68,7 +68,7 @@ export async function solveReCaptcha(sitekey, pageurl, opts = {}) {
           document.body.appendChild(c);
           try {
             grecaptcha.render(c, {
-              sitekey: sitekey,
+              sitekey,
               size: 'invisible',
               callback: (t) => resolve(t),
               'expired-callback': () => resolve(''),
@@ -100,7 +100,6 @@ export async function solveReCaptcha(sitekey, pageurl, opts = {}) {
       console.log(`[reCAPTCHA] Solved! len=${token.length} elapsed=${elapsed}s`);
       return { token, elapsed };
     }
-
     return { token: null, error: 'no_token', elapsed };
   } catch (e) {
     const elapsed = ((Date.now() - start) / 1000).toFixed(2);
