@@ -252,7 +252,7 @@ export async function buildServer() {
   //  SOLVE RECAPTCHA V2 — Playwright real Chrome, any site key
   // ═══════════════════════════════════════════════════════════
   app.post('/solve/recaptcha', async (req, reply) => {
-    const { sitekey, siteurl, proxy, headless } = req.body || {};
+    const { sitekey, siteurl, proxy, headless, cookies, sessionUrl } = req.body || {};
 
     if (!sitekey || !siteurl) {
       return reply.code(400).send({ status: 'error', detail: 'sitekey and siteurl are required' });
@@ -261,11 +261,13 @@ export async function buildServer() {
     const t0 = Date.now();
 
     try {
-      console.log(`[API] reCAPTCHA: sitekey=${sitekey.slice(0, 20)}... url=${siteurl}`);
+      console.log(`[API] reCAPTCHA: sitekey=${sitekey.slice(0, 20)}... url=${siteurl} cookies=${cookies ? 'YES' : 'NO'}`);
       const result = await solveReCaptcha(sitekey, siteurl, {
         timeout: 60,
-        headless: headless !== false, // default true (headless)
+        headless: headless !== false,
         proxy: proxy || null,
+        cookies: cookies || null,
+        sessionUrl: sessionUrl || null,
       });
 
       const elapsed = ((Date.now() - t0) / 1000).toFixed(2);

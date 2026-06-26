@@ -13,7 +13,7 @@ import { chromium } from 'playwright';
  * @returns {{ token: string, elapsed: number }}
  */
 export async function solveReCaptcha(sitekey, pageurl, opts = {}) {
-  const { timeout = 60, headless = true, proxy } = opts;
+  const { timeout = 60, headless = true, proxy, cookies, sessionUrl } = opts;
 
   const launchOpts = {
     headless,
@@ -43,10 +43,35 @@ export async function solveReCaptcha(sitekey, pageurl, opts = {}) {
     Object.defineProperty(navigator, 'plugins', { get: () => [1, 2, 3, 4, 5] });
   });
 
+  // Set session cookies if provided (for session-bound captcha)
+  if (cookies && sessionUrl) {
+    const cookieList = typeof cookies === 'string' ? JSON.parse(cookies) : cookies;
+    const url = new URL(sessionUrl);
+    const domain = url.hostname;
+    // Set domain cookies
+    for (const [name, value] of Object.entries(cookieList)) {
+      await context.addCookies([{
+        name, value, domain: `.${domain}`, path: '/',
+        httpOnly: false, secure: true, sameSite: 'Lax',
+      }]);
+      // Also try without leading dot
+      await context.addCookies([{
+        name, value, domain, path: '/',
+        httpOnly: false, secure: true, sameSite: 'Lax',
+      }]);
+    }
+  }
+
   const page = await context.newPage();
   const start = Date.now();
 
   try {
+    // If session URL provided, load it first to establish session
+    if (sessionUrl) {
+      await page.goto(sessionUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
+      await page.waitForTimeout(2000);
+    }
+
     // Navigate to target page
     await page.goto(pageurl, { waitUntil: 'domcontentloaded', timeout: 30000 });
     await page.waitForTimeout(2000);
