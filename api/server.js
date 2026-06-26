@@ -10,6 +10,7 @@ import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { solveTurnstile } from '../clients/turnstileClient.js';
 import { solveHCaptcha } from '../clients/hcaptchaClient.js';
+import { solveReCaptcha } from '../clients/recaptchaClient.js';
 import { REDIS_URL, REDIS_ENABLED, TURNSTILE_SOLVER_URL } from '../config/index.js';
 import { buildDocsHTML, buildMethodHTML, buildHealthHTML } from '../shared/htmlTemplates.js';
 
@@ -245,6 +246,45 @@ export async function buildServer() {
       return { status: 'success', token: result[1] };
     }
     return reply.code(504).send({ status: 'error', detail: 'All workers are currently overloaded. Please retry.' });
+  });
+
+  // ═══════════════════════════════════════════════════════════
+  //  SOLVE RECAPTCHA V2 — Playwright real Chrome, any site key
+  // ═══════════════════════════════════════════════════════════
+  app.post('/solve/recaptcha', async (req, reply) => {
+    const { sitekey, siteurl, proxy, headless } = req.body || {};
+
+    if (!sitekey || !siteurl) {
+      return reply.code(400).send({ status: 'error', detail: 'sitekey and siteurl are required' });
+    }
+
+    const t0 = Date.now();
+
+    try {
+      console.log(`[API] reCAPTCHA: sitekey=${sitekey.slice(0, 20)}... url=${siteurl}`);
+      const result = await solveReCaptcha(sitekey, siteurl, {
+        timeout: 60,
+        headless: headless !== false, // default true (headless)
+        proxy: proxy || null,
+      });
+
+      const elapsed = ((Date.now() - t0) / 1000).toFixed(2);
+
+      if (result.error) {
+        console.error(`[API] reCAPTCHA error after ${elapsed}s:`, result.error);
+        recordSolve('recaptcha', '—', parseFloat(elapsed), 'failed');
+        return reply.code(500).send({ status: 'error', detail: result.error, elapsed: parseFloat(elapsed) });
+      }
+
+      console.log(`[API] reCAPTCHA solved in ${elapsed}s`);
+      recordSolve('recaptcha', result.token?.slice(0, 20) || '—', parseFloat(elapsed), 'success');
+      return { status: 'success', token: result.token, elapsed: parseFloat(elapsed) };
+    } catch (e) {
+      const elapsed = ((Date.now() - t0) / 1000).toFixed(2);
+      console.error(`[API] reCAPTCHA error after ${elapsed}s:`, e.message);
+      recordSolve('recaptcha', '—', parseFloat(elapsed), 'failed');
+      return reply.code(500).send({ status: 'error', detail: e.message, elapsed: parseFloat(elapsed) });
+    }
   });
 
   return app;
