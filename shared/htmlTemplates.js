@@ -68,7 +68,21 @@ export function buildDocsHTML(poolSize, host) {
 {"status":"success","token":"P0_abc123...","elapsed":5.67}
 
 <span style="color:var(--text2)"># With proxy:</span>
-{"sitekey":"...","siteurl":"...","proxy":{"server":"http://host:port","username":"u","password":"p"}}</pre></div>
+{"sitekey":"...","siteurl":"...","proxy":"http://user:pass@host:port"}</pre></div>
+
+<h2><i data-lucide="shield-check"></i> POST /solve/recaptcha <span style="color:var(--warning)">NEW</span></h2>
+<div class="card"><pre>curl -X POST <span style="color:var(--success)">${H}</span>/solve/recaptcha \\
+  -H "Content-Type: application/json" \\
+  -d '{"sitekey":"6LfjFyMpAAAA...","siteurl":"https://commerce.cashnet.com/fscgiving"}'
+
+<span style="color:var(--success)"># 200 OK</span>
+{"status":"success","token":"0cAFcWeA...","elapsed":4.5,"tokenLen":2084}
+
+<span style="color:var(--text2)"># With proxy tunnel (same IP as payment):</span>
+{"sitekey":"...","siteurl":"...","proxy":"http://72.62.212.120:19888"}
+
+<span style="color:var(--text2)"># Uses real Chrome (non-headless) via Xvfb</span>
+<span style="color:var(--text2)"># Best Google reCAPTCHA scores</span></pre></div>
 
 <h2><i data-lucide="code"></i> Python</h2>
 <div class="card"><pre>import requests
@@ -85,6 +99,13 @@ print(r.json()["token"])
 r = requests.post(f"{API}/solve/hcaptcha", json={
     "sitekey": "463b917e-e264-403f-ad34-34af0ee10294",
     "siteurl": "https://example.com/"
+})
+print(r.json()["token"])
+
+# reCAPTCHA v2
+r = requests.post(f"{API}/solve/recaptcha", json={
+    "sitekey": "6LfjFyMpAAAAAHt55K-tnVieeAK-O3sNLO44VvlV",
+    "siteurl": "https://commerce.cashnet.com/fscgiving"
 })
 print(r.json()["token"])
 
