@@ -41,12 +41,38 @@ export async function solveReCaptcha(sitekey, pageurl, opts = {}) {
     viewport: { width: 1440, height: 900 },
   });
 
-  // Full anti-detection
+  // Full anti-detection — makes Playwright look like real Chrome
   await context.addInitScript(() => {
-    Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
-    Object.defineProperty(navigator, 'plugins', { get: () => [1,2,3,4,5] });
-    if (!window.chrome) window.chrome = { runtime: {} };
+    // Kill webdriver flag
+    Object.defineProperty(navigator, 'webdriver', { get: () => false });
+    // Realistic plugins
+    Object.defineProperty(navigator, 'plugins', { get: () => [
+      { name: 'Chrome PDF Plugin', filename: 'internal-pdf-viewer', description: 'Portable Document Format' },
+      { name: 'Chrome PDF Viewer', filename: 'mhjfbmdgcfjbbpaeojofohoefgiehjai', description: '' },
+      { name: 'Native Client', filename: 'internal-nacl-plugin', description: '' },
+    ]});
+    // Real chrome object
+    window.chrome = {
+      runtime: { onConnect: { addListener: () => {} }, onMessage: { addListener: () => {} } },
+      loadTimes: () => {},
+      csi: () => {},
+      app: {},
+    };
+    // Languages
     Object.defineProperty(navigator, 'languages', { get: () => ['en-US', 'en'] });
+    Object.defineProperty(navigator, 'language', { get: () => 'en-US' });
+    // Platform
+    Object.defineProperty(navigator, 'platform', { get: () => 'Win32' });
+    // Hardware
+    Object.defineProperty(navigator, 'hardwareConcurrency', { get: () => 8 });
+    Object.defineProperty(navigator, 'deviceMemory', { get: () => 8 });
+    // Permissions
+    const origQuery = window.navigator.permissions.query;
+    window.navigator.permissions.query = (params) => (
+      params.name === 'notifications' ?
+      Promise.resolve({ state: Notification.permission }) :
+      origQuery(params)
+    );
   });
 
   const page = await context.newPage();
