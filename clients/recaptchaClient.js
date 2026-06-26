@@ -1,55 +1,47 @@
 // ═══════════════════════════════════════════════════════════
-//  reCAPTCHA v2 Client — Real Chrome or Chromium fallback
-//  Same approach as working local Selenium.
+//  reCAPTCHA v2 Client — about:blank injection (no page load)
+//  Same approach as working local Selenium: load blank page,
+//  inject reCAPTCHA API + render widget + execute = token.
 // ═══════════════════════════════════════════════════════════
 
 import { chromium } from 'playwright';
 
 export async function solveReCaptcha(sitekey, pageurl, opts = {}) {
-  const { timeout = 60, proxy } = opts;
+  const { timeout = 60, headless = true, proxy } = opts;
   const start = Date.now();
 
-  const commonArgs = [
-    '--disable-blink-features=AutomationControlled',
-    '--disable-features=IsolateOrigins',
-    '--no-sandbox', '--disable-setuid-sandbox',
-    '--disable-dev-shm-usage', '--disable-gpu',
-    '--disable-software-rasterizer',
-  ];
-
-  // Try Real Chrome first (Dockerfile installs it), fallback to Playwright Chromium
-  let browser;
-  try {
-    browser = await chromium.launch({
-      headless: true,
-      channel: 'chrome',
-      args: [...commonArgs, '--no-first-run', '--no-default-browser-check'],
-      timeout: 10000,
-    });
-    console.log('[reCAPTCHA] Using REAL Google Chrome');
-  } catch(e) {
-    console.log('[reCAPTCHA] Chrome unavailable, using Playwright Chromium');
-    browser = await chromium.launch({
-      headless: true,
-      args: commonArgs,
-    });
+  const launchOpts = {
+    headless,
+    args: [
+      '--disable-blink-features=AutomationControlled',
+      '--disable-features=IsolateOrigins,site-per-process',
+      '--no-sandbox',
+      '--disable-setuid-sandbox',
+      '--disable-dev-shm-usage',
+      '--disable-gpu',
+      '--disable-software-rasterizer',
+    ],
+  };
+  if (proxy) {
+    try {
+      const url = new URL(proxy);
+      launchOpts.proxy = {
+        server: `${url.protocol}//${url.hostname}:${url.port || '80'}`,
+        username: decodeURIComponent(url.username || ''),
+        password: decodeURIComponent(url.password || ''),
+      };
+    } catch(e) {
+      launchOpts.proxy = { server: proxy };
+    }
   }
 
+  const browser = await chromium.launch(launchOpts);
   const context = await browser.newContext({
     userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36',
     viewport: { width: 1440, height: 900 },
-    ...(proxy ? (() => {
-      try {
-        const url = new URL(proxy);
-        return { proxy: {
-          server: `${url.protocol}//${url.hostname}:${url.port || '80'}`,
-          username: decodeURIComponent(url.username || ''),
-          password: decodeURIComponent(url.password || ''),
-        }};
-      } catch(e) { return { proxy: { server: proxy } }; }
-    })() : {}),
   });
 
+  // Full anti-detection
   await context.addInitScript(() => {
     Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
     Object.defineProperty(navigator, 'plugins', { get: () => [1,2,3,4,5] });
@@ -60,10 +52,14 @@ export async function solveReCaptcha(sitekey, pageurl, opts = {}) {
   const page = await context.newPage();
 
   try {
-    // Exact same approach as working card_checker_auto.py
-    await page.goto('about:blank');
-    console.log('[reCAPTCHA] about:blank loaded, injecting widget...');
+    // Load the target page (checkout URL) to match the Referer context
+    // The captcha MUST be generated on the same page where payment is submitted
+    console.log(`[reCAPTCHA] Loading target page: ${pageurl.slice(0, 80)}...`);
+    await page.goto(pageurl, { waitUntil: 'domcontentloaded', timeout: 25000 });
+    await page.waitForTimeout(2000);
+    console.log(`[reCAPTCHA] Target page loaded, injecting reCAPTCHA...`);
 
+    // Inject reCAPTCHA and execute — same exact logic as local Selenium
     const token = await page.evaluate(({ sitekey, timeout }) => {
       return new Promise((resolve) => {
         function doRender() {
@@ -72,15 +68,18 @@ export async function solveReCaptcha(sitekey, pageurl, opts = {}) {
           document.body.appendChild(c);
           try {
             grecaptcha.render(c, {
-              sitekey,
+              sitekey: sitekey,
               size: 'invisible',
               callback: (t) => resolve(t),
               'expired-callback': () => resolve(''),
               'error-callback': () => resolve(''),
             });
             grecaptcha.execute();
-          } catch(e) { resolve(''); }
+          } catch(e) {
+            resolve('');
+          }
         }
+
         if (typeof grecaptcha !== 'undefined' && grecaptcha.render) {
           doRender();
         } else {
@@ -90,6 +89,7 @@ export async function solveReCaptcha(sitekey, pageurl, opts = {}) {
           s.onerror = () => resolve('');
           document.head.appendChild(s);
         }
+
         setTimeout(() => resolve(''), timeout * 1000);
       });
     }, { sitekey, timeout });
@@ -100,9 +100,12 @@ export async function solveReCaptcha(sitekey, pageurl, opts = {}) {
       console.log(`[reCAPTCHA] Solved! len=${token.length} elapsed=${elapsed}s`);
       return { token, elapsed };
     }
+
     return { token: null, error: 'no_token', elapsed };
   } catch (e) {
-    return { token: null, error: e.message, elapsed: ((Date.now() - start) / 1000).toFixed(2) };
+    const elapsed = ((Date.now() - start) / 1000).toFixed(2);
+    console.error(`[reCAPTCHA] Error: ${e.message}`);
+    return { token: null, error: e.message, elapsed };
   } finally {
     await browser.close().catch(() => {});
   }
