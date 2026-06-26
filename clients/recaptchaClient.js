@@ -106,55 +106,47 @@ export async function solveReCaptcha(sitekey, pageurl, opts = {}) {
     browser = await chromium.launch(launchOpts);
   }
 
-  const context = browser.contexts()[0] || await browser.newContext();
-  const page = context.pages()[0] || await context.newPage();
+  // Random viewport
+  const vpW = [1366, 1440, 1440, 1536, 1920, 1920, 2560][Math.floor(Math.random() * 7)];
+  const vpH = [768, 900, 900, 864, 1080, 1080, 1440][Math.floor(Math.random() * 7)];
+  await page.setViewportSize({ width: vpW, height: vpH });
 
-  // Full fingerprint spoof
-  await page.addInitScript(() => {
-    // Kill webdriver
+  // Random fingerprint for each solve
+  const fp = {
+    platform: ['Win32', 'Win32', 'Win32', 'MacIntel', 'Linux x86_64'][Math.floor(Math.random() * 5)],
+    cores: [4, 4, 8, 8, 8, 12, 16][Math.floor(Math.random() * 7)],
+    memory: [4, 8, 8, 8, 16, 32][Math.floor(Math.random() * 6)],
+    lang: [['en-US','en'], ['en-US','en'], ['en-US','en'], ['en-GB','en'], ['de-DE','de','en']][Math.floor(Math.random() * 5)],
+    gpuVendor: ['Google Inc.', 'Google Inc.', 'Google Inc.', 'Intel Inc.', 'AMD'][Math.floor(Math.random() * 5)],
+    gpuRenderer: ['ANGLE (Google, Vulkan 1.3.0)', 'ANGLE (Intel, Vulkan)', 'ANGLE (AMD, Vulkan)'][Math.floor(Math.random() * 3)],
+  };
+  console.log(`[reCAPTCHA] FP: ${fp.platform} ${vpW}x${vpH} cores=${fp.cores} gpu=${fp.gpuVendor.split(' ')[0]}`);
+
+  await page.addInitScript((fp) => {
     Object.defineProperty(navigator, 'webdriver', { get: () => false });
-    // Chrome runtime
-    window.chrome = {
-      runtime: {},
-      loadTimes: () => {},
-      csi: () => {},
-      app: {},
-    };
-    // Realistic plugins
+    window.chrome = { runtime: {}, loadTimes: () => {}, csi: () => {}, app: {} };
     Object.defineProperty(navigator, 'plugins', {
       get: () => {
-        const arr = [
-          { name: 'Chrome PDF Plugin', filename: 'internal-pdf-viewer' },
-          { name: 'Chrome PDF Viewer', filename: 'mhjfbmdgcfjbbpaeojofohoefgiehjai' },
-          { name: 'Native Client', filename: 'internal-nacl-plugin' },
-        ];
-        arr.item = i => arr[i];
-        arr.namedItem = n => arr.find(p => p.name === n);
-        arr.refresh = () => {};
-        return arr;
+        const arr = [{ name: 'Chrome PDF Plugin', filename: 'internal-pdf-viewer' }, { name: 'Chrome PDF Viewer', filename: 'mhjfbmdgcfjbbpaeojofohoefgiehjai' }, { name: 'Native Client', filename: 'internal-nacl-plugin' }];
+        arr.item = i => arr[i]; arr.namedItem = n => arr.find(p => p.name === n); arr.refresh = () => {}; return arr;
       }
     });
-    // Languages
-    Object.defineProperty(navigator, 'languages', { get: () => ['en-US', 'en'] });
-    Object.defineProperty(navigator, 'language', { get: () => 'en-US' });
-    Object.defineProperty(navigator, 'platform', { get: () => 'Win32' });
-    // Hardware
-    Object.defineProperty(navigator, 'hardwareConcurrency', { get: () => 8 });
-    Object.defineProperty(navigator, 'deviceMemory', { get: () => 8 });
-    // Permissions
+    Object.defineProperty(navigator, 'languages', { get: () => fp.lang });
+    Object.defineProperty(navigator, 'language', { get: () => fp.lang[0] });
+    Object.defineProperty(navigator, 'platform', { get: () => fp.platform });
+    Object.defineProperty(navigator, 'hardwareConcurrency', { get: () => fp.cores });
+    Object.defineProperty(navigator, 'deviceMemory', { get: () => fp.memory });
     const origQ = navigator.permissions.query;
-    navigator.permissions.query = p =>
-      p.name === 'notifications' ? Promise.resolve({ state: 'prompt' }) : origQ(p);
-    // WebGL
+    navigator.permissions.query = p => p.name === 'notifications' ? Promise.resolve({ state: 'prompt' }) : origQ(p);
     try {
       const getParam = WebGLRenderingContext.prototype.getParameter;
       WebGLRenderingContext.prototype.getParameter = function(p) {
-        if (p === 37445) return 'Google Inc.';
-        if (p === 37446) return 'ANGLE (Google, Vulkan 1.3.0)';
+        if (p === 37445) return fp.gpuVendor;
+        if (p === 37446) return fp.gpuRenderer;
         return getParam.call(this, p);
       };
     } catch(e) {}
-  });
+  }, fp);
 
   try {
     const origin = new URL(pageurl).origin;
