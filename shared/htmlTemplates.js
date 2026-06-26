@@ -79,7 +79,7 @@ export function buildDocsHTML(poolSize, host) {
 {"status":"success","token":"0cAFcWeA...","elapsed":4.5,"tokenLen":2084}
 
 <span style="color:var(--text2)"># With proxy (same-IP tunnel):</span>
-{"sitekey":"...","siteurl":"...","proxy":"http://your-ip:port"}
+{"sitekey":"...","siteurl":"...","proxy":"http://72.62.XXX.XXX:PORT"}
 
 <span style="color:var(--text2)"># Uses real Chrome (non-headless) via Xvfb</span>
 <span style="color:var(--text2)"># Best Google reCAPTCHA scores</span></pre></div>
@@ -130,6 +130,13 @@ const hc = await fetch(API + "/solve/hcaptcha", {
   body: JSON.stringify({sitekey: "463...", siteurl: "https://..."})
 }).then(r => r.json());
 
+// reCAPTCHA v2
+const recap = await fetch(API + "/solve/recaptcha", {
+  method: "POST",
+  headers: {"Content-Type": "application/json"},
+  body: JSON.stringify({sitekey: "6Lfj...", siteurl: "https://..."})
+}).then(r => r.json());
+
 // From pool (instant, no waiting)
 const pool = await fetch(API + "/get-hcaptcha-token").then(r => r.json());</pre></div>
 </div>
@@ -176,7 +183,7 @@ export function buildHealthHTML(poolSize, uptimeSeconds) {
 <div class="pool-bar"><div class="pool-fill" style="width:${Math.min(100,(poolSize/50)*100)}%;background:${poolSize >= 20 ? 'var(--success)' : 'var(--warning)'}"></div></div></div>
 
 <div class="card"><div class="card-row"><span><strong><i data-lucide="router" style="width:16px;height:16px"></i> All Endpoints</strong></span></div>
-<div style="margin-top:12px;display:grid;gap:8px;">${['GET|/|Dashboard','GET|/docs|API Docs','GET|/health|This page','POST|/solve/turnstile|Solve Turnstile','POST|/solve/hcaptcha|Solve hCaptcha','GET|/get-hcaptcha-token|hCaptcha pool token','GET|/get-turnstile-token|Turnstile pool token'].map(e => { const [m,p,d] = e.split('|'); return `<div class="endpoint"><span class="method ${m==='GET'?'method-get':'method-post'}">${m}</span><span class="path">${p}</span><span class="desc">${d}</span></div>`; }).join('')}</div></div>
+<div style="margin-top:12px;display:grid;gap:8px;">${['GET|/|Dashboard','GET|/docs|API Docs','GET|/health|This page','POST|/solve/turnstile|Solve Turnstile','POST|/solve/hcaptcha|Solve hCaptcha','POST|/solve/recaptcha|Solve reCAPTCHA <span style=\"color:var(--warning)\">NEW</span>','GET|/get-hcaptcha-token|hCaptcha pool token','GET|/get-turnstile-token|Turnstile pool token'].map(e => { const [m,p,d] = e.split('|'); return `<div class="endpoint"><span class="method ${m==='GET'?'method-get':'method-post'}">${m}</span><span class="path">${p}</span><span class="desc">${d}</span></div>`; }).join('')}</div></div>
 </div>
 <script>lucide.createIcons()<\/script></body></html>`;
 }
