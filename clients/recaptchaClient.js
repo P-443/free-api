@@ -28,7 +28,19 @@ export async function solveReCaptcha(sitekey, pageurl, opts = {}) {
     ],
   };
   if (proxy) {
-    launchOpts.proxy = { server: proxy };
+    // Parse proxy URL: http://user:pass@host:port → Playwright format
+    try {
+      const url = new URL(proxy);
+      launchOpts.proxy = {
+        server: `${url.protocol}//${url.hostname}:${url.port || '80'}`,
+        username: decodeURIComponent(url.username || ''),
+        password: decodeURIComponent(url.password || ''),
+      };
+      console.log(`[reCAPTCHA] Using proxy: ${url.hostname}:${url.port}`);
+    } catch(e) {
+      // Fallback: try as-is
+      launchOpts.proxy = { server: proxy };
+    }
   }
 
   const browser = await chromium.launch(launchOpts);
