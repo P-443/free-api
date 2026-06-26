@@ -11,7 +11,7 @@ export async function solveReCaptcha(sitekey, pageurl, opts = {}) {
   const start = Date.now();
 
   const launchOpts = {
-    headless,
+    headless: false,  // Xvfb on server — non-headless = real browser fingerprint
     args: [
       '--disable-blink-features=AutomationControlled',
       '--disable-features=IsolateOrigins,site-per-process',
@@ -20,6 +20,7 @@ export async function solveReCaptcha(sitekey, pageurl, opts = {}) {
       '--disable-dev-shm-usage',
       '--disable-gpu',
       '--disable-software-rasterizer',
+      '--window-size=1440,900',
     ],
   };
   if (proxy) {
