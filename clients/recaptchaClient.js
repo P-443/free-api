@@ -20,6 +20,11 @@ export async function solveReCaptcha(sitekey, pageurl, opts = {}) {
     args: [
       '--disable-blink-features=AutomationControlled',
       '--disable-features=IsolateOrigins,site-per-process',
+      '--no-sandbox',
+      '--disable-setuid-sandbox',
+      '--disable-dev-shm-usage',
+      '--disable-gpu',
+      '--disable-software-rasterizer',
     ],
   };
   if (proxy) {
