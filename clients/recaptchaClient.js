@@ -52,12 +52,13 @@ export async function solveReCaptcha(sitekey, pageurl, opts = {}) {
   const page = await context.newPage();
 
   try {
-    // Load about:blank (like working local Selenium approach)
-    await page.goto('about:blank');
-    // Allow short settle time
-    await page.waitForTimeout(500);
-
-    console.log(`[reCAPTCHA] Injecting widget on about:blank sitekey=${sitekey.slice(0,20)}...`);
+    // Load the target site homepage (establishes origin for reCAPTCHA)
+    // Only load the main page — no sub-pages or session URLs needed
+    const mainUrl = new URL(pageurl).origin;
+    console.log(`[reCAPTCHA] Loading homepage: ${mainUrl}`);
+    await page.goto(mainUrl, { waitUntil: 'domcontentloaded', timeout: 20000 });
+    await page.waitForTimeout(1000);
+    console.log(`[reCAPTCHA] Page loaded, injecting reCAPTCHA...`);
 
     // Inject reCAPTCHA and execute — same exact logic as local Selenium
     const token = await page.evaluate(({ sitekey, timeout }) => {
