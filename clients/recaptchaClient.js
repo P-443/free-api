@@ -66,10 +66,16 @@ async function getBrowser() {
   if (!sharedBrowser) {
     const exePath = CHROME_PATH;
     console.log('[reCAPTCHA] Launching browser:', exePath);
+    // Use headless:false with Xvfb (same as Python Turnstile solver)
+    // Significantly reduces reCAPTCHA challenge rate
+    const isLinux = process.platform === 'linux';
     sharedBrowser = await chromium.launch({
-      headless: true,
+      headless: false,
       executablePath: exePath,
-      args: BROWSER_ARGS,
+      args: [
+        ...BROWSER_ARGS,
+        ...(isLinux ? ['--display=:99'] : []),
+      ],
     });
     solveCount = 0;
   }
