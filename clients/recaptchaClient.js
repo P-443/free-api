@@ -81,9 +81,31 @@ export async function solveReCaptcha(sitekey, pageurl, opts = {}) {
   }, fp);
 
   try {
-    const origin = new URL(pageurl).origin;
-    console.log(`[reCAPTCHA] Loading: ${origin}`);
-    await page.goto(origin, { waitUntil: 'load', timeout: 25000 });
+    // Try full page first, fallback to origin
+    let loaded = false;
+    try {
+      console.log(`[reCAPTCHA] Loading full page: ${pageurl.slice(0, 70)}...`);
+      await page.goto(pageurl, { waitUntil: 'domcontentloaded', timeout: 15000 });
+      loaded = true;
+    } catch(e) {
+      console.log(`[reCAPTCHA] Full page failed: ${e.message.slice(0, 60)}`);
+    }
+
+    if (!loaded) {
+      try {
+        const origin = new URL(pageurl).origin;
+        console.log(`[reCAPTCHA] Loading origin: ${origin}`);
+        await page.goto(origin, { waitUntil: 'domcontentloaded', timeout: 15000 });
+        loaded = true;
+      } catch(e) {
+        console.log(`[reCAPTCHA] Origin failed: ${e.message.slice(0, 60)}`);
+      }
+    }
+
+    if (!loaded) {
+      return { token: null, error: 'page_load_failed', elapsed: ((Date.now() - start) / 1000).toFixed(2) };
+    }
+
     await page.waitForTimeout(2000);
 
     const token = await page.evaluate(({ sitekey, timeout }) => {
