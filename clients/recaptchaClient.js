@@ -1,13 +1,12 @@
 // ═══════════════════════════════════════════════════════════════
-//  Google reCAPTCHA v2 Solver — Real Chrome + persistent context
-//  Loads REAL page, clicks checkbox. Retries on challenge.
-//  Use channel:'chrome' for real Google Chrome (better stealth).
+//  Google reCAPTCHA v2 Solver — Audio challenge + checkbox
+//  Clicks checkbox → if challenge appears → solves audio CAPTCHA
 // ═══════════════════════════════════════════════════════════════
 
 import { chromium } from 'playwright';
 import { CHROME_PATH } from '../config/index.js';
-
-const useChannel = !!CHROME_PATH && CHROME_PATH.includes('google-chrome');
+import https from 'https';
+import http from 'http';
 
 const BROWSER_ARGS = [
   '--no-sandbox','--disable-dev-shm-usage','--disable-gpu',
@@ -17,28 +16,26 @@ const BROWSER_ARGS = [
   '--disable-client-side-phishing-detection','--disable-component-update',
   '--disable-field-trial-config','--metrics-recording-only',
   '--disable-extensions','--disable-default-apps',
-  '--disable-features=Translate,OptimizationHints,MediaRouter',
   '--disable-blink-features=AutomationControlled',
   '--renderer-process-limit=1','--no-pings',
   '--js-flags=--max-old-space-size=256','--log-level=3','--silent',
 ];
 
+// ═══════════════ Persistent browser ═══════════════
 let sharedBrowser = null;
 let solveCount = 0;
 
 async function getBrowser() {
-  if (sharedBrowser && (solveCount >= 80 || !sharedBrowser.isConnected())) {
+  if (sharedBrowser && (solveCount >= 60 || !sharedBrowser.isConnected())) {
     await sharedBrowser.close().catch(() => {});
     sharedBrowser = null; solveCount = 0;
   }
   if (!sharedBrowser) {
-    const opts = {
+    console.log('[reCAPTCHA] Launching Chrome...');
+    sharedBrowser = await chromium.launch({
       headless: false,
       args: [...BROWSER_ARGS, ...(process.platform === 'linux' ? ['--display=:99'] : [])],
-    };
-    if (useChannel) opts.channel = 'chrome';
-    console.log('[reCAPTCHA] Launching:', useChannel ? 'Chrome' : 'Chromium');
-    sharedBrowser = await chromium.launch(opts);
+    });
     solveCount = 0;
   }
   solveCount++;
@@ -46,106 +43,189 @@ async function getBrowser() {
 }
 
 async function createContext(browser, proxy) {
-  const vpW = [1366, 1440, 1536, 1920][Math.floor(Math.random() * 4)];
-  const vpH = [768, 900, 864, 1080][Math.floor(Math.random() * 4)];
   const opts = {
-    viewport: { width: vpW, height: vpH },
+    viewport: { width: 1366 + Math.floor(Math.random()*500), height: 768 + Math.floor(Math.random()*200) },
     userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36',
     locale: 'en-US', timezoneId: 'America/New_York',
-    deviceScaleFactor: 1, isMobile: false,
   };
   if (proxy) opts.proxy = proxy;
   const ctx = await browser.newContext(opts);
   await ctx.addInitScript(`
     Object.defineProperty(navigator, 'webdriver', {get: () => undefined});
     Object.defineProperty(navigator, 'plugins', {get: () => [1, 2, 3, 4, 5]});
-    Object.defineProperty(navigator, 'languages', {get: () => ['en-US', 'en']});
     window.chrome = { runtime: {}, loadTimes: function() {}, csi: function() {}, app: {} };
   `);
   return ctx;
 }
 
-async function attemptSolve(ctx, sitekey, siteurl) {
+// ═══════════════ Audio download & transcribe ═══════════════
+async function downloadAudio(url) {
+  return new Promise((resolve, reject) => {
+    const proto = url.startsWith('https') ? https : http;
+    proto.get(url, (res) => {
+      const chunks = [];
+      res.on('data', c => chunks.push(c));
+      res.on('end', () => resolve(Buffer.concat(chunks)));
+    }).on('error', reject);
+  });
+}
+
+async function transcribeAudio(audioBuffer) {
+  // Try free Google Speech API (no key needed for short audio)
+  try {
+    const response = await fetch('https://www.google.com/speech-api/v2/recognize?output=json&lang=en-us&key=AIzaSyBOti4mM-6x9WDnZIjIeyEU21OpBXqWBgw', {
+      method: 'POST',
+      headers: { 'Content-Type': 'audio/l16; rate=44100' },
+      body: audioBuffer,
+    });
+    const text = await response.text();
+    // Parse Google Speech response
+    const match = text.match(/"transcript":"([^"]+)"/);
+    if (match) return match[1].replace(/\s/g, '');
+  } catch(e) {
+    console.log('[audio] Google Speech failed:', e.message);
+  }
+  return null;
+}
+
+// ═══════════════ Core solve ═══════════════
+async function solveOneAttempt(ctx, sitekey, siteurl) {
   const page = await ctx.newPage();
   try {
     console.log(`[reCAPTCHA] Loading: ${siteurl.slice(0, 60)}...`);
     await page.goto(siteurl, { waitUntil: 'domcontentloaded', timeout: 20000 });
     await new Promise(r => setTimeout(r, 2000 + Math.random() * 1500));
 
-    // Quick check: already solved?
-    let token = await page.evaluate(() => {
-      const ta = document.querySelector('[name="g-recaptcha-response"]');
-      return ta?.value || null;
-    });
-    if (token) { await page.close(); return token; }
-
-    // Find reCAPTCHA iframe
-    let iframe = null;
-    for (let i = 0; i < 12; i++) {
-      iframe = await page.$('iframe[src*="google.com/recaptcha"]');
-      if (iframe) break;
-      if (i === 4) {
+    // Inject widget if not found
+    let widgetFound = false;
+    for (let i = 0; i < 10; i++) {
+      const iframe = await page.$('iframe[src*="google.com/recaptcha"]');
+      if (iframe) { widgetFound = true; break; }
+      if (i === 3) {
         await page.evaluate(k => {
           if (!document.querySelector('.g-recaptcha')) {
             const d = document.createElement('div');
             d.className = 'g-recaptcha';
             d.setAttribute('data-sitekey', k);
-            d.setAttribute('data-callback', 'rcCall');
-            window.rcCall = t => { window.__RC__ = t; };
+            d.setAttribute('data-callback', 'rcCb');
+            window.rcCb = t => { window.__RC__ = t; };
             document.body.appendChild(d);
             const s = document.createElement('script');
             s.src = 'https://www.google.com/recaptcha/api.js';
             document.head.appendChild(s);
           }
         }, sitekey);
-        await new Promise(r => setTimeout(r, 3000));
+        await new Promise(r => setTimeout(r, 3500));
       }
       await new Promise(r => setTimeout(r, 500));
     }
 
-    iframe = await page.$('iframe[src*="google.com/recaptcha"]');
+    // Find iframe
+    const iframe = await page.$('iframe[src*="google.com/recaptcha"]');
     if (!iframe) {
-      token = await page.evaluate(() => window.__RC__ || null);
+      const token = await page.evaluate(() => window.__RC__ || null);
       await page.close();
       return token;
     }
 
-    const mf = await iframe.contentFrame();
-    if (!mf) { await page.close(); return null; }
+    const mainFrame = await iframe.contentFrame();
+    if (!mainFrame) { await page.close(); return null; }
 
     // Click checkbox
     try {
-      const anchor = await mf.waitForSelector('#recaptcha-anchor', { timeout: 5000 });
+      const anchor = await mainFrame.waitForSelector('#recaptcha-anchor', { timeout: 5000 });
       if (anchor) {
         const bb = await anchor.boundingBox();
         if (bb) {
-          await page.mouse.move(bb.x + bb.width/2 - 25 + Math.random()*10, bb.y + bb.height/2 + 5);
           await page.mouse.click(bb.x + bb.width/2, bb.y + bb.height/2);
           console.log('[reCAPTCHA] Checkbox clicked');
         }
       }
     } catch(e) {}
 
-    // Wait for token (max 20s)
-    const dl = Date.now() + 20000;
-    while (Date.now() < dl) {
-      token = await page.evaluate(() => {
-        if (window.__RC__) return window.__RC__;
-        const ta = document.querySelector('[name="g-recaptcha-response"]');
-        return ta?.value || null;
-      });
-      if (token) break;
-      await new Promise(r => setTimeout(r, 800));
+    await new Promise(r => setTimeout(r, 3000));
+
+    // Check if passed without challenge
+    let token = await page.evaluate(() => {
+      if (window.__RC__) return window.__RC__;
+      const ta = document.querySelector('[name="g-recaptcha-response"]');
+      return ta?.value || null;
+    });
+    if (token) { console.log('[reCAPTCHA] Passed without challenge!'); await page.close(); return token; }
+
+    // Challenge appeared — try audio solve
+    console.log('[reCAPTCHA] Challenge detected, trying audio solve...');
+    const bframe = await page.$('iframe[src*="bframe"]');
+    if (!bframe) { await page.close(); return null; }
+
+    const bf = await bframe.contentFrame();
+    if (!bf) { await page.close(); return null; }
+
+    // Click audio button
+    try {
+      const audioBtn = await bf.waitForSelector('#recaptcha-audio-button', { timeout: 4000 });
+      if (audioBtn) {
+        await audioBtn.click();
+        console.log('[reCAPTCHA] Audio mode activated');
+        await new Promise(r => setTimeout(r, 2000));
+
+        // Get audio download link
+        const audioUrl = await bf.evaluate(() => {
+          const link = document.querySelector('.rc-audiochallenge-tdownload-link');
+          return link ? link.getAttribute('href') : null;
+        });
+
+        if (audioUrl) {
+          console.log(`[reCAPTCHA] Downloading audio...`);
+          const audioBuf = await downloadAudio(audioUrl);
+          console.log(`[reCAPTCHA] Audio downloaded: ${audioBuf.length} bytes`);
+
+          // Transcribe
+          const answer = await transcribeAudio(audioBuf);
+          console.log(`[reCAPTCHA] Transcription: "${answer}"`);
+
+          if (answer) {
+            // Type answer
+            await bf.type('#audio-response', answer, { delay: 50 });
+            await new Promise(r => setTimeout(r, 500));
+
+            // Click verify
+            const verifyBtn = await bf.$('#recaptcha-verify-button');
+            if (verifyBtn) {
+              await verifyBtn.click();
+              console.log('[reCAPTCHA] Verify clicked');
+              await new Promise(r => setTimeout(r, 3000));
+            }
+          }
+        }
+      }
+    } catch(e) {
+      console.log('[reCAPTCHA] Audio solve error:', e.message.slice(0, 60));
+    }
+
+    // Final token check
+    token = await page.evaluate(() => {
+      if (window.__RC__) return window.__RC__;
+      const ta = document.querySelector('[name="g-recaptcha-response"]');
+      return ta?.value || null;
+    });
+
+    if (token) {
+      console.log(`[reCAPTCHA] Token: len=${token.length}`);
+      await page.close();
+      return token;
     }
 
     await page.close();
-    return token;
+    return null;
   } catch(e) {
+    console.log('[reCAPTCHA] Error:', e.message.slice(0, 60));
     await page.close().catch(() => {});
     return null;
   }
 }
 
+// ═══════════════ Public API ═══════════════
 export async function solveReCaptcha(sitekey, pageurl, opts = {}) {
   const { proxy } = opts;
   let proxyConfig = null;
@@ -159,36 +239,25 @@ export async function solveReCaptcha(sitekey, pageurl, opts = {}) {
   }
 
   const t0 = Date.now();
+
+  // Single attempt with audio solve (takes longer but more reliable)
   let token = null;
-
-  // Try up to 2 times with fresh context each time
-  for (let attempt = 0; attempt < 2; attempt++) {
-    if (attempt === 0 && proxyConfig) {
-      token = await trySolve(proxyConfig, sitekey, pageurl);
-    } else {
-      token = await trySolve(null, sitekey, pageurl);
-    }
-    if (token) break;
-    console.log(`[reCAPTCHA] Attempt ${attempt+1} failed, retrying...`);
-  }
-
-  const elapsed = ((Date.now() - t0) / 1000).toFixed(2);
-  if (token && token.length > 20) {
-    const q = token.length > 1500 ? 'high' : 'standard';
-    console.log(`[reCAPTCHA] SOLVED q=${q} len=${token.length} ${elapsed}s`);
-    return { token, elapsed, quality: q };
-  }
-  return { token: null, error: 'no_token', elapsed };
-}
-
-async function trySolve(proxyConfig, sitekey, pageurl) {
   try {
     const browser = await getBrowser();
-    const ctx = await createContext(browser, proxyConfig);
-    const token = await attemptSolve(ctx, sitekey, pageurl);
+    const ctx = await createContext(browser, proxyConfig || null);
+    token = await solveOneAttempt(ctx, sitekey, pageurl);
     await ctx.close();
-    return token;
-  } catch(e) { return null; }
+  } catch(e) {}
+
+  const elapsed = ((Date.now() - t0) / 1000).toFixed(2);
+
+  if (token && token.length > 20) {
+    const quality = token.length > 1500 ? 'high' : 'standard';
+    console.log(`[reCAPTCHA] SOLVED q=${quality} len=${token.length} ${elapsed}s`);
+    return { token, elapsed, quality };
+  }
+
+  return { token: null, error: 'no_token', elapsed };
 }
 
 export async function shutdownRecaptcha() {
