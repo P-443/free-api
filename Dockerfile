@@ -4,7 +4,7 @@ WORKDIR /app
 
 # ── System deps + Python + Xvfb + Chromium ────────────────────
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    python3 python3-pip xvfb wget curl \
+    python3 python3-pip xvfb wget curl ffmpeg \
     libvulkan1 xdg-utils libu2f-udev libasound2 \
     && rm -rf /var/lib/apt/lists/*
 
@@ -29,7 +29,7 @@ RUN npm install
 COPY . .
 
 # ── Ports ────────────────────────────────────────────────────
-EXPOSE 9000 8191
+EXPOSE 9000 8191 8192
 
 # ── main.js auto-starts Xvfb + Python solver + Node.js API ──
 CMD ["node", "main.js"]
