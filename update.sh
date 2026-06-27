@@ -8,6 +8,7 @@ git checkout re
 git pull origin re
 echo "[Update] Installing dependencies..."
 npm install --no-audit 2>/dev/null
+cd python_solver && pip install -r requirements.txt 2>/dev/null && cd ..
 echo "[Update] Restarting service..."
 pm2 restart free-captcha-api 2>/dev/null || pm2 start main.js --name free-captcha-api
 echo "[Update] Done! API running on :9000"
