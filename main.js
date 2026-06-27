@@ -61,14 +61,56 @@ async function startPythonSolver() {
   return py; // Return process anyway, might still be starting
 }
 
+async function startReCaptchaSolver() {
+  const servicePy = path.join(PYTHON_SOLVER_DIR, 'recaptcha_service.py');
+  if (!existsSync(servicePy)) {
+    console.log('[Main] reCAPTCHA Python solver not found, skipping');
+    return null;
+  }
+
+  console.log('[Main] Starting Python reCAPTCHA solver (nodriver)...');
+
+  let extraEnv = {};
+  if (IS_LINUX && !DISPLAY) {
+    extraEnv.DISPLAY = ':99';
+  }
+
+  const py = spawn('python3', [servicePy], {
+    cwd: PYTHON_SOLVER_DIR,
+    stdio: 'inherit',
+    env: { ...process.env, RC_PORT: '8192', ...extraEnv },
+  });
+
+  py.on('exit', (code) => {
+    console.log(`[Main] reCAPTCHA solver exited (${code}), restarting in 3s...`);
+    setTimeout(() => startReCaptchaSolver(), 3000);
+  });
+
+  // Wait for ready
+  console.log('[Main] Waiting for reCAPTCHA solver on :8192...');
+  for (let i = 0; i < 15; i++) {
+    try {
+      await fetch('http://127.0.0.1:8192/health');
+      console.log('[Main] reCAPTCHA solver ready!');
+      return py;
+    } catch (e) {
+      await new Promise(r => setTimeout(r, 1000));
+    }
+  }
+  console.log('[Main] reCAPTCHA solver not responding — will use Node.js fallback');
+  return py;
+}
+
 async function main() {
   console.log('══════════════════════════════════════════════════');
   console.log('  Free Captcha API v3');
-  console.log('  Turnstile + hCaptcha — any site, any key');
+  console.log('  Turnstile + hCaptcha + reCAPTCHA — any site, any key');
   console.log('══════════════════════════════════════════════════');
 
   // Start Python Turnstile solver FIRST
   const pyProcess = await startPythonSolver();
+  // Start Python reCAPTCHA solver
+  const rcPyProcess = await startReCaptchaSolver();
 
   // Start API server
   const app = await buildServer();
@@ -100,6 +142,7 @@ async function main() {
       console.log('[Main] Shutting down...');
       workers.forEach(w => w.kill());
       if (pyProcess) pyProcess.kill();
+      if (rcPyProcess) rcPyProcess.kill();
       await app.close();
       process.exit(0);
     };
@@ -109,6 +152,7 @@ async function main() {
     const shutdown = async () => {
       console.log('[Main] Shutting down...');
       if (pyProcess) pyProcess.kill();
+      if (rcPyProcess) rcPyProcess.kill();
       await app.close();
       process.exit(0);
     };
