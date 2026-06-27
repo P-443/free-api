@@ -8,9 +8,10 @@ import Redis from 'ioredis';
 import { readFileSync } from 'fs';
 import { solveHCaptchaBatch } from '../clients/hcaptchaClient.js';
 import { solveTurnstile } from '../clients/turnstileClient.js';
+import { solveReCaptcha } from '../clients/recaptchaClient.js';
 
 // ── Configuration — from central config module ────────────────
-import { REDIS_URL, HCAPTCHA_SITEKEY, HCAPTCHA_SITEURL, TURNSTILE_SITEKEY, TURNSTILE_SITEURL, TARGET_POOL, LOW_POOL, BATCH_SIZE } from '../config/index.js';
+import { REDIS_URL, HCAPTCHA_SITEKEY, HCAPTCHA_SITEURL, TURNSTILE_SITEKEY, TURNSTILE_SITEURL, RECAPTCHA_SITEKEY, RECAPTCHA_SITEURL, TARGET_POOL, LOW_POOL, BATCH_SIZE } from '../config/index.js';
 if (!REDIS_URL) {
   console.error('[Worker] REDIS_URL not set. Worker needs Redis. Exiting.');
   process.exit(1);
@@ -120,24 +121,67 @@ async function fillTurnstilePool() {
 }
 
 // ═══════════════════════════════════════════════════════════════
+//  RECAPTCHA POOL FILLER
+// ═══════════════════════════════════════════════════════════════
+async function fillRecaptchaPool() {
+  if (!RECAPTCHA_SITEKEY || !RECAPTCHA_SITEURL) return;
+
+  const count = await redis.llen('recaptcha_tokens');
+  if (count >= TARGET_POOL) return;
+
+  const needed = Math.min(BATCH_SIZE, TARGET_POOL - count);
+  console.log(`[Worker] reCAPTCHA pool: ${count}/${TARGET_POOL}, solving ${needed}...`);
+
+  const startTime = Date.now();
+  let solved = 0;
+  for (let i = 0; i < needed; i++) {
+    try {
+      const proxy = PROXIES.length > 0 ? PROXIES[Math.floor(Math.random() * PROXIES.length)] : null;
+      const result = await solveReCaptcha(RECAPTCHA_SITEKEY, RECAPTCHA_SITEURL, {
+        timeout: 60,
+        headless: true,
+        proxy: proxy ? `http://${proxy.username}:${proxy.password}@${proxy.server.replace('http://', '')}` : null,
+      });
+      if (result.token) {
+        await redis.rpush('recaptcha_tokens', result.token);
+        solved++;
+      }
+    } catch (e) {
+      // continue
+    }
+  }
+  const elapsed = Date.now() - startTime;
+
+  if (solved > 0) {
+    await redis.expire('recaptcha_tokens', 110);
+    const newCount = await redis.llen('recaptcha_tokens');
+    const rate = (solved / (elapsed / 1000)).toFixed(1);
+    console.log(`[Worker] +${solved} reCAPTCHA tokens in ${elapsed}ms (${rate}/s) | Pool: ${newCount}/${TARGET_POOL}`);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
 //  MAIN LOOP
 // ═══════════════════════════════════════════════════════════════
 async function run() {
   console.log(`[Worker ${process.pid}] Started — Target: ${TARGET_POOL} tokens per pool`);
   console.log(`[Worker ${process.pid}] hCaptcha: ${HCAPTCHA_SITEKEY ? 'ENABLED' : 'disabled'}`);
   console.log(`[Worker ${process.pid}] Turnstile: ${TURNSTILE_SITEKEY ? 'ENABLED' : 'disabled'}`);
+  console.log(`[Worker ${process.pid}] reCAPTCHA: ${RECAPTCHA_SITEKEY ? 'ENABLED' : 'disabled'}`);
   console.log(`[Worker ${process.pid}] Proxies: ${PROXIES.length} | Batch: ${BATCH_SIZE}`);
 
   while (true) {
     try {
       await fillHCaptchaPool();
       await fillTurnstilePool();
+      await fillRecaptchaPool();
 
-      // If both pools are full, wait before checking again
+      // If all pools are full, wait before checking again
       const hcCount = await redis.llen('hcaptcha_tokens').catch(() => 0);
       const tsCount = await redis.llen('turnstile_tokens').catch(() => 0);
+      const rcCount = await redis.llen('recaptcha_tokens').catch(() => 0);
 
-      if (hcCount >= TARGET_POOL && tsCount >= TARGET_POOL) {
+      if (hcCount >= TARGET_POOL && tsCount >= TARGET_POOL && rcCount >= TARGET_POOL) {
         await new Promise(r => setTimeout(r, 2000));
       } else {
         await new Promise(r => setTimeout(r, 200));

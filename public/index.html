@@ -553,6 +553,9 @@ tr:hover td { background: rgba(255,255,255,0.015); }
             <button class="btn btn-primary" onclick="solveReCaptcha()" id="recapSolveBtn">
               <i data-lucide="unlock"></i> Solve reCAPTCHA
             </button>
+            <button class="btn btn-outline" onclick="getRecaptchaFromPool()" id="recapPoolBtn" style="margin-left:8px;">
+              <i data-lucide="download"></i> Pull from Pool
+            </button>
           </div>
         </div>
         <div class="token-box" id="recapTokenBox">
@@ -826,6 +829,8 @@ async function quickSolve() {
     let token = null;
     if (type === 'turnstile') {
       token = await solveTurnstileCore(key, url, parseInt(document.getElementById('quickTimeout').value) || 45);
+    } else if (type === 'recaptcha') {
+      token = await solveReCaptchaCore(key, url);
     } else {
       token = await solveHCaptchaCore(key, url);
     }
@@ -1065,6 +1070,37 @@ async function doSolveReCaptcha(key, url, proxy) {
   finally {
     btn.disabled = false;
     btn.innerHTML = '<i data-lucide="unlock"></i> Solve reCAPTCHA';
+    lucide.createIcons();
+    updateStats();
+  }
+}
+
+async function solveReCaptchaCore(key, url) {
+  const body = { sitekey: key, siteurl: url };
+  const r = await fetch(apiUrl() + '/solve/ire', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body) });
+  const d = await r.json();
+  if (d.status === 'success') return d.token;
+  throw new Error(d.detail || 'Solve failed');
+}
+
+async function getRecaptchaFromPool() {
+  const btn = document.getElementById('recapPoolBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Pulling...';
+  try {
+    const r = await fetch(apiUrl() + '/get-recaptcha-token');
+    const d = await r.json();
+    if (d.status === 'success') {
+      document.getElementById('recapTokenText').textContent = d.token;
+      document.getElementById('recapTokenBox').classList.add('show');
+      document.getElementById('recapStats').textContent = '⚡ Pulled from pool (instant)';
+      loadStats();
+      toast('⚡ reCAPTCHA token pulled from pool', 'success');
+    } else { toast('❌ ' + d.detail, 'error'); }
+  } catch (e) { toast('❌ ' + e.message, 'error'); }
+  finally {
+    btn.disabled = false;
+    btn.innerHTML = '<i data-lucide="download"></i> Pull from Pool';
     lucide.createIcons();
     updateStats();
   }

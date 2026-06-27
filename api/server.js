@@ -250,6 +250,20 @@ export async function buildServer() {
   });
 
   // ═══════════════════════════════════════════════════════════
+  //  GET RECAPTCHA TOKEN FROM POOL — instant (Redis required)
+  // ═══════════════════════════════════════════════════════════
+  app.get('/get-recaptcha-token', async (_req, reply) => {
+    if (!redis) {
+      return reply.code(503).send({ status: 'error', detail: 'Token pool disabled. Set REDIS_URL and run workers.' });
+    }
+    const result = await redis.blpop('recaptcha_tokens', 20);
+    if (result) {
+      return { status: 'success', token: result[1] };
+    }
+    return reply.code(504).send({ status: 'error', detail: 'All workers are currently overloaded. Please retry.' });
+  });
+
+  // ═══════════════════════════════════════════════════════════
   //  SOLVE RECAPTCHA V2 — Playwright real Chrome, any site key
   // ═══════════════════════════════════════════════════════════
   app.post('/solve/recaptcha', async (req, reply) => {

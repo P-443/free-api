@@ -20,6 +20,8 @@ export const HCAPTCHA_SITEKEY = process.env.HCAPTCHA_SITEKEY || '';
 export const HCAPTCHA_SITEURL = process.env.HCAPTCHA_SITEURL || '';
 export const TURNSTILE_SITEKEY = process.env.TURNSTILE_SITEKEY || '';
 export const TURNSTILE_SITEURL = process.env.TURNSTILE_SITEURL || '';
+export const RECAPTCHA_SITEKEY = process.env.RECAPTCHA_SITEKEY || '';
+export const RECAPTCHA_SITEURL = process.env.RECAPTCHA_SITEURL || '';
 
 export const TARGET_POOL = parseInt(process.env.TARGET_POOL || '50', 10);
 export const LOW_POOL = parseInt(process.env.LOW_POOL || '10', 10);
