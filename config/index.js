@@ -22,6 +22,7 @@ export const TURNSTILE_SITEKEY = process.env.TURNSTILE_SITEKEY || '';
 export const TURNSTILE_SITEURL = process.env.TURNSTILE_SITEURL || '';
 export const RECAPTCHA_SITEKEY = process.env.RECAPTCHA_SITEKEY || '';
 export const RECAPTCHA_SITEURL = process.env.RECAPTCHA_SITEURL || '';
+export const RECAPTCHA_PYTHON_SOLVER = process.env.RECAPTCHA_PYTHON_SOLVER || 'http://127.0.0.1:8192/solve';
 
 export const TARGET_POOL = parseInt(process.env.TARGET_POOL || '50', 10);
 export const LOW_POOL = parseInt(process.env.LOW_POOL || '10', 10);

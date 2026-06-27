@@ -11,7 +11,7 @@ import { fileURLToPath } from 'url';
 import { solveTurnstile } from '../clients/turnstileClient.js';
 import { solveHCaptcha } from '../clients/hcaptchaClient.js';
 import { solveReCaptcha } from '../clients/recaptchaClient.js';
-import { REDIS_URL, REDIS_ENABLED, TURNSTILE_SOLVER_URL } from '../config/index.js';
+import { REDIS_URL, REDIS_ENABLED, TURNSTILE_SOLVER_URL, RECAPTCHA_PYTHON_SOLVER } from '../config/index.js';
 import { buildDocsHTML, buildMethodHTML, buildHealthHTML } from '../shared/htmlTemplates.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -312,8 +312,8 @@ export async function buildServer() {
   });
 
   // ═══════════════════════════════════════════════════════════
-  //  SOLVE /ire — Max stealth reCAPTCHA v2 solver
-  //  Same as /solve/recaptcha but with quality guarantee
+  //  SOLVE /ire — Uses Python nodriver solver (proven, same as Turnstile)
+  //  Falls back to Node.js Playwright solver if Python unavailable
   // ═══════════════════════════════════════════════════════════
   app.post('/solve/ire', async (req, reply) => {
     const { sitekey, siteurl, proxy } = req.body || {};
@@ -323,65 +323,50 @@ export async function buildServer() {
     }
 
     const t0 = Date.now();
-    let lastError = null;
-    let bestToken = null;
 
-    // Single attempt with audio solve (takes 45-90s, more reliable)
-    for (let attempt = 1; attempt <= 1; attempt++) {
-      try {
-        console.log(`[ire] Attempt ${attempt}/3: sitekey=${sitekey.slice(0, 20)}...`);
-        const result = await solveReCaptcha(sitekey, siteurl, {
-          timeout: 60,
-          headless: false,
-          proxy: proxy || null,
-        });
-
+    // Try Python nodriver solver first (proven — same engine as Turnstile)
+    try {
+      console.log(`[ire] Python solver: sitekey=${sitekey.slice(0, 20)}... url=${siteurl}`);
+      const pyResp = await fetch(RECAPTCHA_PYTHON_SOLVER, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sitekey, siteurl, timeout: 90 }),
+        signal: AbortSignal.timeout(120000),
+      });
+      const pyData = await pyResp.json();
+      if (pyResp.ok && (pyData.token || pyData.status === 'success')) {
         const elapsed = ((Date.now() - t0) / 1000).toFixed(2);
-
-        if (result.error) {
-          lastError = result.error;
-          console.log(`[ire] Attempt ${attempt} failed: ${result.error}`);
-          continue;
-        }
-
-        if (result.token && result.token.length > 1500 && result.token.startsWith('0cAFcWeA')) {
-          console.log(`[ire] HIGH quality token on attempt ${attempt}! len=${result.token.length}`);
-          recordSolve('ire', result.token.slice(0, 20), parseFloat(elapsed), 'success');
-          return {
-            status: 'success', token: result.token, elapsed: parseFloat(elapsed),
-            proxy: proxy ? `${proxy.slice(0, 30)}...` : 'none',
-            proxyUsed: !!proxy,
-            tokenLen: result.token.length,
-            quality: 'high',
-            attempts: attempt,
-          };
-        }
-
-        if (result.token && result.token.length > 500) {
-          bestToken = result.token;
-          console.log(`[ire] Token on attempt ${attempt}, quality: standard`);
-        }
-      } catch (e) {
-        lastError = e.message;
-        console.log(`[ire] Attempt ${attempt} error: ${e.message}`);
+        const tok = pyData.token || pyData;
+        const finalToken = typeof tok === 'string' ? tok : tok.token;
+        console.log(`[ire] Python solved in ${elapsed}s len=${finalToken?.length || 0}`);
+        recordSolve('ire', finalToken?.slice(0, 20) || '—', parseFloat(elapsed), 'success');
+        return { status: 'success', token: finalToken, elapsed: parseFloat(elapsed),
+          quality: finalToken.length > 1500 ? 'high' : 'standard', tokenLen: finalToken.length };
       }
+      console.log('[ire] Python solver failed, trying Node.js fallback...');
+    } catch (pyErr) {
+      console.log('[ire] Python solver unreachable, using Node.js fallback:', pyErr.message);
     }
 
-    // Return best available token
-    if (bestToken) {
+    // Fallback: built-in Node.js Playwright solver
+    try {
+      console.log(`[ire] Node.js fallback: sitekey=${sitekey.slice(0, 20)}... url=${siteurl}`);
+      const result = await solveReCaptcha(sitekey, siteurl, { timeout: 60, headless: false, proxy: proxy || null });
       const elapsed = ((Date.now() - t0) / 1000).toFixed(2);
-      recordSolve('ire', bestToken.slice(0, 20), parseFloat(elapsed), 'success');
-      return {
-        status: 'success', token: bestToken, elapsed: parseFloat(elapsed),
-        quality: 'standard',
-        proxyUsed: !!proxy,
-        tokenLen: bestToken.length,
-      };
+      if (result.token) {
+        console.log(`[ire] Node.js solved in ${elapsed}s len=${result.token.length}`);
+        recordSolve('ire', result.token.slice(0, 20), parseFloat(elapsed), 'success');
+        return { status: 'success', token: result.token, elapsed: parseFloat(elapsed),
+          quality: result.token.length > 1500 ? 'high' : 'standard', tokenLen: result.token.length };
+      }
+      recordSolve('ire', '—', parseFloat(elapsed), 'failed');
+      return reply.code(500).send({ status: 'error', detail: result.error || 'no_token', elapsed: parseFloat(elapsed) });
+    } catch (e) {
+      const elapsed = ((Date.now() - t0) / 1000).toFixed(2);
+      console.error(`[ire] Error after ${elapsed}s:`, e.message);
+      recordSolve('ire', '—', parseFloat(elapsed), 'failed');
+      return reply.code(500).send({ status: 'error', detail: e.message, elapsed: parseFloat(elapsed) });
     }
-
-    const elapsed = ((Date.now() - t0) / 1000).toFixed(2);
-    recordSolve('ire', '—', parseFloat(elapsed), 'failed');
-    return reply.code(500).send({ status: 'error', detail: lastError || 'no_token', elapsed: parseFloat(elapsed) });
   });
 
   return app;
