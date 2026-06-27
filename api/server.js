@@ -326,8 +326,8 @@ export async function buildServer() {
     let lastError = null;
     let bestToken = null;
 
-    // Try up to 3 times for a high-quality token
-    for (let attempt = 1; attempt <= 3; attempt++) {
+    // Single attempt with audio solve (takes 45-90s, more reliable)
+    for (let attempt = 1; attempt <= 1; attempt++) {
       try {
         console.log(`[ire] Attempt ${attempt}/3: sitekey=${sitekey.slice(0, 20)}...`);
         const result = await solveReCaptcha(sitekey, siteurl, {
