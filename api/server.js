@@ -297,5 +297,78 @@ export async function buildServer() {
     }
   });
 
+  // ═══════════════════════════════════════════════════════════
+  //  SOLVE /ire — Max stealth reCAPTCHA v2 solver
+  //  Same as /solve/recaptcha but with quality guarantee
+  // ═══════════════════════════════════════════════════════════
+  app.post('/solve/ire', async (req, reply) => {
+    const { sitekey, siteurl, proxy } = req.body || {};
+
+    if (!sitekey || !siteurl) {
+      return reply.code(400).send({ status: 'error', detail: 'sitekey and siteurl are required' });
+    }
+
+    const t0 = Date.now();
+    let lastError = null;
+    let bestToken = null;
+
+    // Try up to 3 times for a high-quality token
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        console.log(`[ire] Attempt ${attempt}/3: sitekey=${sitekey.slice(0, 20)}...`);
+        const result = await solveReCaptcha(sitekey, siteurl, {
+          timeout: 60,
+          headless: false,
+          proxy: proxy || null,
+        });
+
+        const elapsed = ((Date.now() - t0) / 1000).toFixed(2);
+
+        if (result.error) {
+          lastError = result.error;
+          console.log(`[ire] Attempt ${attempt} failed: ${result.error}`);
+          continue;
+        }
+
+        if (result.token && result.token.length > 1500 && result.token.startsWith('0cAFcWeA')) {
+          console.log(`[ire] HIGH quality token on attempt ${attempt}! len=${result.token.length}`);
+          recordSolve('ire', result.token.slice(0, 20), parseFloat(elapsed), 'success');
+          return {
+            status: 'success', token: result.token, elapsed: parseFloat(elapsed),
+            proxy: proxy ? `${proxy.slice(0, 30)}...` : 'none',
+            proxyUsed: !!proxy,
+            tokenLen: result.token.length,
+            quality: 'high',
+            attempts: attempt,
+          };
+        }
+
+        if (result.token && result.token.length > 500) {
+          bestToken = result.token;
+          console.log(`[ire] Token on attempt ${attempt}, quality: standard`);
+        }
+      } catch (e) {
+        lastError = e.message;
+        console.log(`[ire] Attempt ${attempt} error: ${e.message}`);
+      }
+    }
+
+    // Return best available token
+    if (bestToken) {
+      const elapsed = ((Date.now() - t0) / 1000).toFixed(2);
+      recordSolve('ire', bestToken.slice(0, 20), parseFloat(elapsed), 'success');
+      return {
+        status: 'success', token: bestToken, elapsed: parseFloat(elapsed),
+        quality: 'standard',
+        proxyUsed: !!proxy,
+        tokenLen: bestToken.length,
+      };
+    }
+
+    const elapsed = ((Date.now() - t0) / 1000).toFixed(2);
+    recordSolve('ire', '—', parseFloat(elapsed), 'failed');
+    return reply.code(500).send({ status: 'error', detail: lastError || 'no_token', elapsed: parseFloat(elapsed) });
+  });
+
   return app;
 }
