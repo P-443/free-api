@@ -54,6 +54,17 @@ export async function solveReCaptcha(sitekey, pageurl, opts = {}) {
 
   const page = await context.newPage();
 
+  // Cloudflare bypass: set browser-like headers before navigation
+  await page.setExtraHTTPHeaders({
+    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+    'Accept-Language': 'en-US,en;q=0.9',
+    'sec-ch-ua': '"Google Chrome";v="149", "Chromium";v="149", "Not)A;Brand";v="24"',
+    'sec-ch-ua-mobile': '?0',
+    'sec-ch-ua-platform': '"Windows"',
+    'Upgrade-Insecure-Requests': '1',
+    'Cache-Control': 'max-age=0',
+  });
+
   await page.addInitScript((fp) => {
     Object.defineProperty(navigator, 'webdriver', { get: () => false });
     window.chrome = { runtime: {}, loadTimes: () => {}, csi: () => {}, app: {} };
