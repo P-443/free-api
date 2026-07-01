@@ -293,9 +293,11 @@ export async function buildServer() {
         recordSolve('recaptcha', finalToken?.slice(0, 20) || '—', parseFloat(elapsed), 'success');
         return { status: 'success', token: finalToken, elapsed: parseFloat(elapsed) };
       }
-      console.log('[API] Python reCAPTCHA failed, trying built-in...');
+      const pyStatus = pyResp.status;
+      const pyBody = JSON.stringify(pyData).slice(0, 100);
+      console.log(`[API] Python reCAPTCHA failed (HTTP ${pyStatus}): ${pyBody}`);
     } catch (pyErr) {
-      console.log('[API] Python reCAPTCHA unreachable, using built-in:', pyErr.message);
+      console.log('[API] Python reCAPTCHA unreachable:', pyErr.message);
     }
 
     // ── Fallback: built-in Playwright solver ───────────────────

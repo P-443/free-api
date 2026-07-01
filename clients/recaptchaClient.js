@@ -232,8 +232,20 @@ async function solveOneAttempt(ctx, sitekey, siteurl) {
         console.log('[reCAPTCHA] Audio mode activated');
         await new Promise(r => setTimeout(r, 3000)); // Wait for audio to load
 
-        // Try to get audio URL from network capture first, then page selectors
+        // Approach 1: Network capture
         let audioUrl = capturedAudioUrl;
+
+        // Approach 2: Find <audio> element src
+        if (!audioUrl) {
+          audioUrl = await bf.evaluate(() => {
+            const audio = document.querySelector('audio');
+            if (audio) return audio.src || audio.currentSrc || null;
+            // Try source element inside audio
+            const source = document.querySelector('audio source');
+            if (source) return source.src || null;
+            return null;
+          });
+        }
         if (!audioUrl) {
           audioUrl = await bf.evaluate(() => {
             for (const sel of ['.rc-audiochallenge-tdownload-link', 'a[href*="audio"]', 'a[download]', '.rc-audiochallenge-play-button + a', 'a.rc-audiochallenge-tdownload-link-on-safari']) {
