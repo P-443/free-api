@@ -1,0 +1,9 @@
+{
+  "name": "hc-panel",
+  "version": "3.0.0",
+  "type": "module",
+  "description": "HC Panel — Captcha Management Dashboard",
+  "scripts": {
+    "start": "node server.js"
+  }
+}

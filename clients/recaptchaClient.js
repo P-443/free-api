@@ -25,16 +25,20 @@ const BROWSER_ARGS = [
 let sharedBrowser = null;
 let solveCount = 0;
 
-async function getBrowser() {
+async function getBrowser(headless = true) {
   if (sharedBrowser && (solveCount >= 60 || !sharedBrowser.isConnected())) {
     await sharedBrowser.close().catch(() => {});
     sharedBrowser = null; solveCount = 0;
   }
   if (!sharedBrowser) {
-    console.log('[reCAPTCHA] Launching Chrome...');
+    console.log(`[reCAPTCHA] Launching Chrome (headless=${headless})...`);
     sharedBrowser = await chromium.launch({
-      headless: false,
-      args: [...BROWSER_ARGS, ...(process.platform === 'linux' ? ['--display=:99'] : [])],
+      headless,
+      args: [
+        ...BROWSER_ARGS,
+        ...(process.platform === 'linux' && !headless ? ['--display=:99'] : []),
+        ...(headless ? ['--headless=new'] : []),
+      ],
     });
     solveCount = 0;
   }
@@ -153,10 +157,35 @@ async function solveOneAttempt(ctx, sitekey, siteurl) {
     });
     if (token) { console.log('[reCAPTCHA] Passed without challenge!'); await page.close(); return token; }
 
+    // Wait a bit more for auto-solve (some sites trigger invisible recaptcha)
+    for (let i = 0; i < 6; i++) {
+      await new Promise(r => setTimeout(r, 2000));
+      token = await page.evaluate(() => {
+        if (window.__RC__) return window.__RC__;
+        const ta = document.querySelector('[name="g-recaptcha-response"]');
+        return ta?.value || null;
+      });
+      if (token) { console.log('[reCAPTCHA] Auto-solved after wait'); await page.close(); return token; }
+    }
+
     // Challenge appeared — try audio solve
     console.log('[reCAPTCHA] Challenge detected, trying audio solve...');
     const bframe = await page.$('iframe[src*="bframe"]');
-    if (!bframe) { await page.close(); return null; }
+    if (!bframe) {
+      // No bframe — maybe still loading. Wait more.
+      console.log('[reCAPTCHA] No bframe, waiting more...');
+      for (let i = 0; i < 4; i++) {
+        await new Promise(r => setTimeout(r, 3000));
+        token = await page.evaluate(() => {
+          if (window.__RC__) return window.__RC__;
+          const ta = document.querySelector('[name="g-recaptcha-response"]');
+          return ta?.value || null;
+        });
+        if (token) { console.log('[reCAPTCHA] Token appeared after wait'); await page.close(); return token; }
+      }
+      await page.close();
+      return null;
+    }
 
     const bf = await bframe.contentFrame();
     if (!bf) { await page.close(); return null; }
@@ -184,36 +213,42 @@ async function solveOneAttempt(ctx, sitekey, siteurl) {
           const answer = await transcribeAudio(audioBuf);
           console.log(`[reCAPTCHA] Transcription: "${answer}"`);
 
-          if (answer) {
+          if (answer && answer.length > 0) {
             // Type answer
-            await bf.type('#audio-response', answer, { delay: 50 });
-            await new Promise(r => setTimeout(r, 500));
+            const input = await bf.$('#audio-response');
+            if (input) {
+              await input.click({ clickCount: 3 });
+              await input.type(answer, { delay: 80 });
+              await new Promise(r => setTimeout(r, 500));
 
-            // Click verify
-            const verifyBtn = await bf.$('#recaptcha-verify-button');
-            if (verifyBtn) {
-              await verifyBtn.click();
-              console.log('[reCAPTCHA] Verify clicked');
-              await new Promise(r => setTimeout(r, 3000));
+              // Click verify
+              const verifyBtn = await bf.$('#recaptcha-verify-button');
+              if (verifyBtn) {
+                await verifyBtn.click();
+                console.log('[reCAPTCHA] Verify clicked');
+                await new Promise(r => setTimeout(r, 4000));
+              }
             }
           }
         }
       }
     } catch(e) {
-      console.log('[reCAPTCHA] Audio solve error:', e.message.slice(0, 60));
+      console.log('[reCAPTCHA] Audio solve error:', e.message.slice(0, 80));
     }
 
-    // Final token check
-    token = await page.evaluate(() => {
-      if (window.__RC__) return window.__RC__;
-      const ta = document.querySelector('[name="g-recaptcha-response"]');
-      return ta?.value || null;
-    });
-
-    if (token) {
-      console.log(`[reCAPTCHA] Token: len=${token.length}`);
-      await page.close();
-      return token;
+    // Final token check — wait longer
+    for (let i = 0; i < 5; i++) {
+      await new Promise(r => setTimeout(r, 2000));
+      token = await page.evaluate(() => {
+        if (window.__RC__) return window.__RC__;
+        const ta = document.querySelector('[name="g-recaptcha-response"]');
+        return ta?.value || null;
+      });
+      if (token) {
+        console.log(`[reCAPTCHA] Token: len=${token.length}`);
+        await page.close();
+        return token;
+      }
     }
 
     await page.close();
@@ -227,7 +262,7 @@ async function solveOneAttempt(ctx, sitekey, siteurl) {
 
 // ═══════════════ Public API ═══════════════
 export async function solveReCaptcha(sitekey, pageurl, opts = {}) {
-  const { proxy } = opts;
+  const { proxy, headless = true, maxAttempts = 2 } = opts;
   let proxyConfig = null;
   if (proxy) {
     try {
@@ -240,23 +275,34 @@ export async function solveReCaptcha(sitekey, pageurl, opts = {}) {
 
   const t0 = Date.now();
 
-  // Single attempt with audio solve (takes longer but more reliable)
-  let token = null;
-  try {
-    const browser = await getBrowser();
-    const ctx = await createContext(browser, proxyConfig || null);
-    token = await solveOneAttempt(ctx, sitekey, pageurl);
-    await ctx.close();
-  } catch(e) {}
+  // Multiple attempts
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    let token = null;
+    try {
+      const browser = await getBrowser(headless);
+      const ctx = await createContext(browser, proxyConfig || null);
+      token = await solveOneAttempt(ctx, sitekey, pageurl);
+      await ctx.close();
+    } catch(e) {
+      console.log(`[reCAPTCHA] Attempt ${attempt + 1} error:`, e.message.slice(0, 80));
+    }
 
-  const elapsed = ((Date.now() - t0) / 1000).toFixed(2);
+    const elapsed = ((Date.now() - t0) / 1000).toFixed(2);
 
-  if (token && token.length > 20) {
-    const quality = token.length > 1500 ? 'high' : 'standard';
-    console.log(`[reCAPTCHA] SOLVED q=${quality} len=${token.length} ${elapsed}s`);
-    return { token, elapsed, quality };
+    if (token && token.length > 20) {
+      const quality = token.length > 1500 ? 'high' : 'standard';
+      console.log(`[reCAPTCHA] SOLVED q=${quality} len=${token.length} ${elapsed}s (attempt ${attempt + 1})`);
+      return { token, elapsed, quality };
+    }
+
+    if (attempt < maxAttempts - 1) {
+      console.log(`[reCAPTCHA] Retrying (${attempt + 1}/${maxAttempts})...`);
+      await new Promise(r => setTimeout(r, 2000));
+    }
   }
 
+  const elapsed = ((Date.now() - t0) / 1000).toFixed(2);
+  console.log(`[reCAPTCHA] All ${maxAttempts} attempts failed — no_token`);
   return { token: null, error: 'no_token', elapsed };
 }
 
