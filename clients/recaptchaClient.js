@@ -219,23 +219,30 @@ async function solveOneAttempt(ctx, sitekey, siteurl) {
     try {
       const audioBtn = await bf.waitForSelector('#recaptcha-audio-button', { timeout: 4000 });
       if (audioBtn) {
-        // Intercept payload endpoint to capture audio data DIRECTLY
+        // Capture audio via response listener (more reliable than route interception)
         let audioPayload = null;
-        await page.route('**/recaptcha/api2/payload**', async (route) => {
-          const resp = await route.fetch();
-          audioPayload = await resp.body();
-          await route.fulfill({ response: resp });
-        });
+        const onResponse = async (response) => {
+          if (response.url().includes('api2/payload') || response.url().includes('recaptcha/api2')) {
+            try {
+              const buf = await response.body();
+              if (buf && buf.length > 100) {
+                audioPayload = buf;
+                console.log('[reCAPTCHA] Audio response captured:', buf.length, 'bytes');
+              }
+            } catch(e) {}
+          }
+        };
+        page.on('response', onResponse);
 
         await audioBtn.click();
         console.log('[reCAPTCHA] Audio mode activated');
-        // Wait for audio to load via /api2/payload
+        // Wait for audio payload response
         for (let i = 0; i < 5 && !audioPayload; i++) {
           await new Promise(r => setTimeout(r, 2000));
         }
-        await page.unroute('**/recaptcha/api2/payload**').catch(() => {});
+        page.off('response', onResponse);
 
-        console.log(`[reCAPTCHA] Payload captured: ${audioPayload?.length || 0} bytes`);
+        console.log(`[reCAPTCHA] Audio payload: ${audioPayload?.length || 0} bytes`);
         let audioBuf = audioPayload;
 
         // Fallback: try DOM download link if payload not captured
