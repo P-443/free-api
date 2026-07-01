@@ -145,7 +145,9 @@ async function solveOneAttempt(ctx, sitekey, siteurl) {
           console.log('[reCAPTCHA] Checkbox clicked');
         }
       }
-    } catch(e) {}
+    } catch(e) {
+      console.log('[reCAPTCHA] Checkbox click failed:', e.message.slice(0, 40));
+    }
 
     await new Promise(r => setTimeout(r, 3000));
 
@@ -170,8 +172,31 @@ async function solveOneAttempt(ctx, sitekey, siteurl) {
 
     // Challenge appeared — try audio solve
     console.log('[reCAPTCHA] Challenge detected, trying audio solve...');
+
+    // Debug: log all iframes to understand page structure
+    const allIframes = await page.evaluate(() =>
+      [...document.querySelectorAll('iframe')].map(f => ({ src: (f.src||'').slice(0,80), id: f.id, cls: f.className }))
+    );
+    console.log('[reCAPTCHA] Page iframes:', JSON.stringify(allIframes));
+
     const bframe = await page.$('iframe[src*="bframe"]');
     if (!bframe) {
+      // Try alternative selectors
+      const altBframe = await page.$('iframe[src*="api2/bframe"], iframe[src*="api2/anchor"], iframe[title*="challenge"]');
+      console.log('[reCAPTCHA] Alternative bframe found:', !!altBframe);
+      if (altBframe) {
+        // Try the alternative
+        const altF = await altBframe.contentFrame();
+        if (altF) {
+          console.log('[reCAPTCHA] Using alternative challenge frame');
+          // Try audio in this frame
+          try {
+            const audioBtn = await altF.waitForSelector('#recaptcha-audio-button, button[title*="audio"]', { timeout: 3000 });
+            if (audioBtn) { await audioBtn.click(); console.log('[reCAPTCHA] Audio clicked in alt frame'); await new Promise(r => setTimeout(r, 2000)); }
+          } catch(e) {}
+        }
+      }
+
       // No bframe — maybe still loading. Wait more.
       console.log('[reCAPTCHA] No bframe, waiting more...');
       for (let i = 0; i < 4; i++) {

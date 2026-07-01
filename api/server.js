@@ -275,11 +275,35 @@ export async function buildServer() {
 
     const t0 = Date.now();
 
+    // ── Try Python nodriver solver first (proven, Xvfb required) ─
     try {
-      console.log(`[API] reCAPTCHA: sitekey=${sitekey.slice(0, 20)}... proxy=${!!proxy}`);
+      console.log(`[API] reCAPTCHA via Python: sitekey=${sitekey.slice(0, 20)}... url=${siteurl}`);
+      const pyResp = await fetch(RECAPTCHA_PYTHON_SOLVER, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sitekey, pageurl: siteurl, proxy: proxy || null }),
+        signal: AbortSignal.timeout(90000),
+      });
+      const pyData = await pyResp.json();
+      if (pyResp.ok && (pyData.token || pyData.status === 'success')) {
+        const elapsed = ((Date.now() - t0) / 1000).toFixed(2);
+        const tok = pyData.token || pyData;
+        const finalToken = typeof tok === 'string' ? tok : tok.token;
+        console.log(`[API] Python reCAPTCHA solved in ${elapsed}s`);
+        recordSolve('recaptcha', finalToken?.slice(0, 20) || '—', parseFloat(elapsed), 'success');
+        return { status: 'success', token: finalToken, elapsed: parseFloat(elapsed) };
+      }
+      console.log('[API] Python reCAPTCHA failed, trying built-in...');
+    } catch (pyErr) {
+      console.log('[API] Python reCAPTCHA unreachable, using built-in:', pyErr.message);
+    }
+
+    // ── Fallback: built-in Playwright solver ───────────────────
+    try {
+      console.log(`[API] reCAPTCHA built-in: sitekey=${sitekey.slice(0, 20)}... proxy=${!!proxy}`);
       const result = await solveReCaptcha(sitekey, siteurl, {
         timeout: 60,
-        headless: headless !== false,
+        headless: headless !== false, // Use headed if Xvfb available
         proxy: proxy || null,
       });
 
