@@ -219,79 +219,51 @@ async function solveOneAttempt(ctx, sitekey, siteurl) {
     try {
       const audioBtn = await bf.waitForSelector('#recaptcha-audio-button', { timeout: 4000 });
       if (audioBtn) {
-        // Set up audio capture BEFORE clicking
-        let capturedAudioUrl = null;
-        page.on('response', (response) => {
-          const url = response.url();
-          if ((url.includes('.mp3') || url.includes('audio')) && response.status() === 200) {
-            capturedAudioUrl = url;
-          }
+        // Intercept payload endpoint to capture audio data DIRECTLY
+        let audioPayload = null;
+        await page.route('**/recaptcha/api2/payload**', async (route) => {
+          const resp = await route.fetch();
+          audioPayload = await resp.body();
+          await route.fulfill({ response: resp });
         });
 
         await audioBtn.click();
         console.log('[reCAPTCHA] Audio mode activated');
-        await new Promise(r => setTimeout(r, 3000)); // Wait for audio to load
-
-        // Approach 1: Network capture
-        let audioUrl = capturedAudioUrl;
-
-        // Approach 2: Find <audio> element src
-        if (!audioUrl) {
-          audioUrl = await bf.evaluate(() => {
-            const audio = document.querySelector('audio');
-            if (audio) return audio.src || audio.currentSrc || null;
-            // Try source element inside audio
-            const source = document.querySelector('audio source');
-            if (source) return source.src || null;
-            return null;
-          });
+        // Wait for audio to load via /api2/payload
+        for (let i = 0; i < 5 && !audioPayload; i++) {
+          await new Promise(r => setTimeout(r, 2000));
         }
-        if (!audioUrl) {
-          audioUrl = await bf.evaluate(() => {
-            for (const sel of ['.rc-audiochallenge-tdownload-link', 'a[href*="audio"]', 'a[download]', '.rc-audiochallenge-play-button + a', 'a.rc-audiochallenge-tdownload-link-on-safari']) {
+        await page.unroute('**/recaptcha/api2/payload**').catch(() => {});
+
+        console.log(`[reCAPTCHA] Payload captured: ${audioPayload?.length || 0} bytes`);
+        let audioBuf = audioPayload;
+
+        // Fallback: try DOM download link if payload not captured
+        if (!audioBuf || audioBuf.length < 100) {
+          const audioUrl = await bf.evaluate(() => {
+            for (const sel of ['#audio-source', '.rc-audiochallenge-tdownload-link', 'a[href*="audio"]']) {
               const el = document.querySelector(sel);
-              if (el && el.href) return el.href;
+              if (el) return el.src || el.href || el.getAttribute('src') || null;
             }
-            const links = [...document.querySelectorAll('a[href]')];
-            const mp3 = links.find(l => l.href.includes('.mp3') || l.href.includes('audio'));
-            if (mp3) return mp3.href;
             return null;
           });
+          if (audioUrl) { try { audioBuf = await downloadAudio(audioUrl); } catch(e) {} }
         }
-        console.log(`[reCAPTCHA] Audio URL found: ${audioUrl ? 'yes' : 'NO (will retry)'}`);
 
-        if (audioUrl) {
-          console.log(`[reCAPTCHA] Audio URL: ${audioUrl.slice(0, 80)}...`);
-          let audioBuf = null;
-          try {
-            audioBuf = await downloadAudio(audioUrl);
-            console.log(`[reCAPTCHA] Audio downloaded: ${audioBuf.length} bytes`);
-          } catch (dlErr) {
-            console.log(`[reCAPTCHA] Audio download failed: ${dlErr.message}`);
-          }
+        let answer = null;
+        if (audioBuf && audioBuf.length > 100) {
+          answer = await transcribeAudio(audioBuf);
+          console.log(`[reCAPTCHA] Transcription: "${answer}"`);
+        }
 
-          let answer = null;
-          if (audioBuf && audioBuf.length > 100) {
-            answer = await transcribeAudio(audioBuf);
-            console.log(`[reCAPTCHA] Transcription: "${answer}"`);
-          }
-
-          if (answer && answer.length > 0) {
-            // Type answer
-            const input = await bf.$('#audio-response');
-            if (input) {
-              await input.click({ clickCount: 3 });
-              await input.type(answer, { delay: 80 });
-              await new Promise(r => setTimeout(r, 500));
-
-              // Click verify
-              const verifyBtn = await bf.$('#recaptcha-verify-button');
-              if (verifyBtn) {
-                await verifyBtn.click();
-                console.log('[reCAPTCHA] Verify clicked');
-                await new Promise(r => setTimeout(r, 4000));
-              }
-            }
+        if (answer && answer.length > 0) {
+          const input = await bf.$('#audio-response');
+          if (input) {
+            await input.click({ clickCount: 3 });
+            await input.type(answer, { delay: 80 });
+            await new Promise(r => setTimeout(r, 500));
+            const verifyBtn = await bf.$('#recaptcha-verify-button');
+            if (verifyBtn) { await verifyBtn.click(); await new Promise(r => setTimeout(r, 4000)); }
           }
         }
       }
