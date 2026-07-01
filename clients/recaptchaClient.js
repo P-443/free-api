@@ -219,24 +219,50 @@ async function solveOneAttempt(ctx, sitekey, siteurl) {
     try {
       const audioBtn = await bf.waitForSelector('#recaptcha-audio-button', { timeout: 4000 });
       if (audioBtn) {
-        await audioBtn.click();
-        console.log('[reCAPTCHA] Audio mode activated');
-        await new Promise(r => setTimeout(r, 2000));
-
-        // Get audio download link
-        const audioUrl = await bf.evaluate(() => {
-          const link = document.querySelector('.rc-audiochallenge-tdownload-link');
-          return link ? link.getAttribute('href') : null;
+        // Set up audio capture BEFORE clicking
+        let capturedAudioUrl = null;
+        page.on('response', (response) => {
+          const url = response.url();
+          if ((url.includes('.mp3') || url.includes('audio')) && response.status() === 200) {
+            capturedAudioUrl = url;
+          }
         });
 
-        if (audioUrl) {
-          console.log(`[reCAPTCHA] Downloading audio...`);
-          const audioBuf = await downloadAudio(audioUrl);
-          console.log(`[reCAPTCHA] Audio downloaded: ${audioBuf.length} bytes`);
+        await audioBtn.click();
+        console.log('[reCAPTCHA] Audio mode activated');
+        await new Promise(r => setTimeout(r, 3000)); // Wait for audio to load
 
-          // Transcribe
-          const answer = await transcribeAudio(audioBuf);
-          console.log(`[reCAPTCHA] Transcription: "${answer}"`);
+        // Try to get audio URL from network capture first, then page selectors
+        let audioUrl = capturedAudioUrl;
+        if (!audioUrl) {
+          audioUrl = await bf.evaluate(() => {
+            for (const sel of ['.rc-audiochallenge-tdownload-link', 'a[href*="audio"]', 'a[download]', '.rc-audiochallenge-play-button + a', 'a.rc-audiochallenge-tdownload-link-on-safari']) {
+              const el = document.querySelector(sel);
+              if (el && el.href) return el.href;
+            }
+            const links = [...document.querySelectorAll('a[href]')];
+            const mp3 = links.find(l => l.href.includes('.mp3') || l.href.includes('audio'));
+            if (mp3) return mp3.href;
+            return null;
+          });
+        }
+        console.log(`[reCAPTCHA] Audio URL found: ${audioUrl ? 'yes' : 'NO (will retry)'}`);
+
+        if (audioUrl) {
+          console.log(`[reCAPTCHA] Audio URL: ${audioUrl.slice(0, 80)}...`);
+          let audioBuf = null;
+          try {
+            audioBuf = await downloadAudio(audioUrl);
+            console.log(`[reCAPTCHA] Audio downloaded: ${audioBuf.length} bytes`);
+          } catch (dlErr) {
+            console.log(`[reCAPTCHA] Audio download failed: ${dlErr.message}`);
+          }
+
+          let answer = null;
+          if (audioBuf && audioBuf.length > 100) {
+            answer = await transcribeAudio(audioBuf);
+            console.log(`[reCAPTCHA] Transcription: "${answer}"`);
+          }
 
           if (answer && answer.length > 0) {
             // Type answer

@@ -281,7 +281,7 @@ export async function buildServer() {
       const pyResp = await fetch(RECAPTCHA_PYTHON_SOLVER, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sitekey, pageurl: siteurl, proxy: proxy || null }),
+        body: JSON.stringify({ sitekey, siteurl, proxy: proxy || null }),
         signal: AbortSignal.timeout(90000),
       });
       const pyData = await pyResp.json();
